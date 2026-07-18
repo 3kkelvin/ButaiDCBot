@@ -1,7 +1,16 @@
+import './utils/otel'; // 必須在第一行載入，以啟用 OTel 自動插樁
 import { Client, GatewayIntentBits, REST, Routes, Events } from 'discord.js';
 import dotenv from 'dotenv';
 import { pingCommand } from './controllers/pingCommand';
 import { startHealthCheckServer } from './utils/healthCheckServer';
+import { initSchedulers } from './utils/scheduler';
+import { DiscordLogger } from './utils/discordLogger';
+import { AppError } from './utils/appError';
+import { trace } from '@opentelemetry/api';
+import { initializeDatabase } from './utils/dbInit';
+import dns from 'dns';
+// 解決 Docker 容器中預設不支援 IPv6 導致的 ENETUNREACH 錯誤，強制全域優先連線 IPv4
+dns.setDefaultResultOrder('ipv4first');
 
 // 1. 載入環境變數
 dotenv.config();
@@ -15,7 +24,7 @@ if (!TOKEN || !CLIENT_ID) {
   process.exit(1);
 }
 
-// 2. 初始化 Discord Client (Intents 僅宣告基礎所需的 Guilds)
+// 2. 初始化 Discord Client
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
@@ -24,7 +33,7 @@ const client = new Client({
 const commands = new Map<string, any>();
 commands.set(pingCommand.data.name, pingCommand);
 
-// 4. 當 Ready 時向 Discord 伺服器同步註冊 Slash Commands，並啟動本地健康檢查
+// 4. 當 Ready 時向 Discord 伺服器同步註冊 Slash Commands，並啟動健康檢查與排程
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`[Bot] 登入成功！當前帳號：${readyClient.user.tag}`);
 
@@ -48,11 +57,17 @@ client.once(Events.ClientReady, async (readyClient) => {
     console.error('[Bot] Slash Commands 註冊同步失敗：', error);
   }
 
+  // 執行資料庫自動建表與遷移
+  await initializeDatabase();
+
   // 啟動健康檢查伺服器
   startHealthCheckServer(readyClient);
+
+  // 初始化排程任務系統
+  initSchedulers();
 });
 
-// 5. 監聽互動事件，並實現頂層非同步錯誤捕獲 (asyncHandler 精神)
+// 5. 監聽互動事件，並實現頂層非同步錯誤捕獲
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -68,15 +83,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
   } catch (error: any) {
     console.error(`[Command Error] 執行指令 ${interaction.commandName} 時發生未預期異常:`, error);
 
-    // 判斷是否為自定義的 AppError (AppError 通常有 message 與 code/status，中期引入)
-    const isAppError = error.constructor.name === 'AppError' || (error.message && !error.stack?.includes('TypeError') && !error.stack?.includes('ReferenceError'));
+    // 判斷是否為自定義的 AppError
+    const isAppError = error instanceof AppError;
     const userMessage = isAppError 
       ? error.message 
-      : '❌ 系統發生未知錯誤，已通知開發團隊處理。';
+      : '系統發生未知錯誤';
 
-    // 系統級錯誤，後續將自動觸發 Discord Webhook 報警 (discordLogger)
+    // 系統級錯誤，自動觸發 Discord Webhook 報警
     if (!isAppError) {
-      console.log(`[Alarm] 系統級錯誤已捕獲，準備發送報警。Trace Stack:\n`, error.stack);
+      const activeSpan = trace.getActiveSpan();
+      const traceId = activeSpan?.spanContext().traceId;
+
+      await DiscordLogger.sendErrorLog({
+        message: error.message || 'Unknown system error',
+        errorName: error.name || 'SystemError',
+        stack: error.stack,
+        commandName: interaction.commandName,
+        userId: interaction.user.id,
+        guildId: interaction.guildId || undefined,
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'local',
+        traceId,
+      }).catch((logErr) => {
+        console.error('[Bot] 發送 Discord 錯誤報警失敗：', logErr.message, error.stack);
+      });
     }
 
     // 回覆使用者錯誤狀態，若已 reply 則 followUp，否則直接 reply

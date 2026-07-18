@@ -3,3 +3,12 @@ DISCORD_TOKEN=your_discord_bot_token_here
 DISCORD_CLIENT_ID=your_discord_client_id_here
 DISCORD_GUILD_ID=your_discord_guild_id_here
 HEALTH_PORT=5000
+# Supabase Postgres Database
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_KEY=your-supabase-anon-key
+DATABASE_URL=postgresql://postgres:your-db-password@db.your-project-id.supabase.co:5432/postgres
+# Discord Logger Webhook
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your-webhook-id
+# OpenTelemetry / Axiom Exporter
+AXIOM_TOKEN=your-axiom-api-token
+AXIOM_DATASET=your-axiom-dataset-name

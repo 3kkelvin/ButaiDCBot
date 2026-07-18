@@ -62,7 +62,7 @@ pipeline {
                     
                     // 使用 sh 執行 Bash 迴圈進行重試，等待 Bot 客戶端完成 Ready
                     sh """
-                    MAX_RETRIES=15
+                    MAX_RETRIES=20
                     SLEEP_TIME=3
                     
                     for i in \$(seq 1 \$MAX_RETRIES); do

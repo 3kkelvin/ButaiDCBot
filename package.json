@@ -13,12 +13,27 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.20.0",
     "nodemon": "^3.0.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "^0.220.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.78.0",
+    "@opentelemetry/exporter-logs-otlp-proto": "^0.220.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "^0.220.0",
+    "@opentelemetry/resources": "^2.9.0",
+    "@opentelemetry/sdk-logs": "^0.220.0",
+    "@opentelemetry/sdk-node": "^0.220.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "@supabase/supabase-js": "^2.110.7",
+    "axios": "^1.18.1",
     "discord.js": "^14.14.1",
-    "dotenv": "^16.4.1"
+    "dotenv": "^16.4.1",
+    "node-cron": "^4.6.0",
+    "pg": "^8.22.0"
   }
 }

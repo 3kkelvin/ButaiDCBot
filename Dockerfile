@@ -32,8 +32,9 @@ COPY package*.json ./
 # 只安裝正式環境需要的依賴 (忽略 devDependencies)
 RUN npm install --omit=production
 
-# 從 builder 階段把編譯好的 dist 目錄複製過來
+# 從 builder 階段把編譯好的 dist 目錄與 database 目錄複製過來
 COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/database ./database
 
 # 標示暴露健康檢查的 Port (預設為 5000)
 EXPOSE 5000
