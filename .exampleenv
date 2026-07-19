@@ -9,6 +9,7 @@ SUPABASE_KEY=your-supabase-anon-key
 DATABASE_URL=postgresql://postgres:your-db-password@db.your-project-id.supabase.co:5432/postgres
 # Discord Logger Webhook
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your-webhook-id
+DISCORD_INFO_WEBHOOK_URL=https://discord.com/api/webhooks/your-info-webhook-id
 # OpenTelemetry / Axiom Exporter
 AXIOM_TOKEN=your-axiom-api-token
 AXIOM_DATASET=your-axiom-dataset-name

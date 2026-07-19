@@ -1,33 +1,36 @@
+import { EmbedBuilder } from 'discord.js';
 import { otelLogger } from '../utils/otelLogger';
 import cacheRepository from '../repositories/cacheRepository';
 import lockService from './lockService';
 import cacheService from './cacheService';
 
-export interface IPingResponse {
-  message: string;
-  latency: number;
-  timestamp: string;
-}
-
+/**
+ * 驗證 Ping 相關基礎設施業務服務 (BLL)
+ */
 export class PingService {
   /**
-   * 獲取 Ping 指令的回覆資料
-   * @param wsPing Discord Client Websocket 延遲 (毫秒)
+   * 獲取 Websocket 延遲 Embed UI
+   * @param wsPing client websocket 延遲值
    */
-  async getPongMessage(wsPing: number): Promise<IPingResponse> {
+  async getPongEmbed(wsPing: number): Promise<EmbedBuilder> {
     const latency = wsPing < 0 ? 0 : wsPing;
-    return {
-      message: 'Pong!',
-      latency: latency,
-      timestamp: new Date().toISOString(),
-    };
+    return new EmbedBuilder()
+      .setColor('#00ffcc') // 霓虹綠
+      .setTitle('🏓 Pong!')
+      .setDescription('📡 網路與延遲測試成功！')
+      .addFields(
+        { name: '📡 Websocket 延遲', value: `${latency}ms`, inline: true },
+        { name: '⏰ 時間戳記', value: `\`${new Date().toISOString()}\``, inline: false }
+      )
+      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
+      .setTimestamp();
   }
 
   /**
-   * 測試 OpenTelemetry 功能
+   * 測試 OpenTelemetry 並組裝結果 Embed
    */
-  async testOtel(): Promise<string> {
-    // 1. 記錄一筆 info
+  async getOtelEmbed(): Promise<EmbedBuilder> {
+    // 1. 記錄一筆 info 遙測日誌
     otelLogger.info('[Test] 觸發 /ping otel 測試，記錄一般 INFO 日誌。', {
       testField: 'OtelTestValue',
       timestamp: Date.now(),
@@ -39,15 +42,21 @@ export class PingService {
       description: 'OpenTelemetry function verification',
     });
 
-    return '✅ 已成功觸發 OTel 遙測事件與一般日誌記錄。請檢查您的 OTel Collector 或 Axiom 控制台！';
+    return new EmbedBuilder()
+      .setColor('#9933ff') // 紫色
+      .setTitle('📊 OpenTelemetry 遙測測試')
+      .setDescription('✅ 已成功觸發 OTel 遙測事件與一般日誌記錄。請檢查您的 OTel Collector 或 Axiom 控制台！')
+      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
+      .setTimestamp();
   }
 
   /**
-   * 測試 Supabase Postgres 讀寫與連線
+   * 測試 Supabase Postgres 讀寫連線並組裝結果 Embed
    */
-  async testDb(): Promise<string> {
+  async getDbEmbed(): Promise<EmbedBuilder> {
     const testKey = 'db_ping_test_key';
-    
+    let description = '';
+
     try {
       // 1. 寫入一筆測試資料至 caches 表
       await cacheRepository.set(
@@ -64,34 +73,48 @@ export class PingService {
       await cacheRepository.deleteByKeys(testKey);
       
       if (retrieved && retrieved.data?.ping === 'pong') {
-        return `✅ Supabase Postgres 連線與讀寫測試成功！已成功寫入快取表並讀回驗證。資料庫回傳值：\`${JSON.stringify(retrieved.data)}\``;
+        description = `✅ Supabase Postgres 連線與讀寫測試成功！已成功寫入快取表並讀回驗證。\n\n資料庫回傳值：\`${JSON.stringify(retrieved.data)}\``;
       } else {
-        return '❌ Supabase Postgres 測試失敗：讀回的資料與寫入的不符。';
+        description = '❌ Supabase Postgres 測試失敗：讀回的資料與寫入的不符。';
       }
     } catch (error: any) {
       console.error('[DB Test Error]', error);
-      return `❌ Supabase Postgres 連線與讀寫測試失敗！錯誤訊息：\`${error.message}\``;
+      description = `❌ Supabase Postgres 連線與讀寫測試失敗！\n\n錯誤訊息：\`${error.message}\``;
     }
+
+    return new EmbedBuilder()
+      .setColor('#3399ff') // 藍色
+      .setTitle('🗄️ Supabase DB 連線測試')
+      .setDescription(description)
+      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
+      .setTimestamp();
   }
 
   /**
-   * 測試 LockService 分散式鎖功能 (鎖定 5 秒)
+   * 測試 LockService 分散式鎖功能並組裝結果 Embed
    */
-  async testLock(): Promise<string> {
+  async getLockEmbed(): Promise<EmbedBuilder> {
     const lockKey = 'test_lock_key';
     
     // 呼叫分散式鎖服務，加鎖 5 秒
-    return await lockService.runWithLock({ lockKey }, async () => {
+    const description = await lockService.runWithLock({ lockKey }, async () => {
       // 模擬執行 5 秒的非同步業務邏輯
       await new Promise((resolve) => setTimeout(resolve, 5000));
       return '✅ 分散式鎖成功取得並正常執行完畢！(鎖定時長 5 秒)';
     });
+
+    return new EmbedBuilder()
+      .setColor('#ff9933') // 橘色
+      .setTitle('🔒 分散式鎖測試')
+      .setDescription(description)
+      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
+      .setTimestamp();
   }
 
   /**
-   * 測試 CacheService 快取功能 (TTL 15 秒)
+   * 測試 CacheService 快取功能並組裝結果 Embed
    */
-  async testCache(): Promise<{ message: string; fromCache: boolean; data: any }> {
+  async getCacheEmbed(): Promise<EmbedBuilder> {
     const cacheKey = 'test_cache_service_key';
     const cacheCategory = 'CACHE_VERIFY';
     
@@ -115,13 +138,21 @@ export class PingService {
       }
     );
 
-    return {
-      message: isCallbackExecuted 
-        ? '✅ 快取遺失，已執行 Callback 進行運算並寫入快取！(等候 2 秒)' 
-        : '🚀 快取命中！直接自快取資料庫返回！(即時回應)',
-      fromCache: !isCallbackExecuted,
-      data,
-    };
+    const title = isCallbackExecuted ? '⚡ 快取遺失 (Cache Miss)' : '⚡ 快取命中 (Cache Hit)';
+    const message = isCallbackExecuted 
+      ? '✅ 快取遺失，已執行 Callback 進行運算並寫入快取！(等候 2 秒)' 
+      : '🚀 快取命中！直接自快取資料庫返回！(即時回應)';
+
+    return new EmbedBuilder()
+      .setColor(isCallbackExecuted ? '#ff3366' : '#ffcc00') // Hit 為黃色，Miss 為粉紅
+      .setTitle(title)
+      .setDescription(message)
+      .addFields(
+        { name: 'Generated At', value: `\`${data.generatedAt}\``, inline: false },
+        { name: 'Random Key', value: `\`${data.random}\``, inline: true }
+      )
+      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
+      .setTimestamp();
   }
 }
 

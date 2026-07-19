@@ -1,6 +1,9 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { pingService } from '../services/pingService';
 
+/**
+ * /ping 表現層指令控制器 (已經過 UI 與業務解耦優化)
+ */
 export const pingCommand = {
   data: new SlashCommandBuilder()
     .setName('ping')
@@ -78,98 +81,50 @@ export const pingCommand = {
   },
 
   /**
-   * 處理 WebSocket 延遲測試 (Subcommand: latency)
+   * 處理 WebSocket 延遲測試
    */
   async handleLatency(interaction: ChatInputCommandInteraction) {
     const wsPing = interaction.client.ws.ping;
-    const result = await pingService.getPongMessage(wsPing);
-
-    const embed = new EmbedBuilder()
-      .setColor('#00ffcc') // 霓虹綠
-      .setTitle('🏓 Pong!')
-      .setDescription(result.message)
-      .addFields(
-        { name: '📡 Websocket 延遲', value: `${result.latency}ms`, inline: true },
-        { name: '⏰ 時間戳記', value: `\`${result.timestamp}\``, inline: false }
-      )
-      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
-      .setTimestamp();
-
+    const embed = await pingService.getPongEmbed(wsPing);
     await interaction.reply({ embeds: [embed] });
   },
 
   /**
-   * 模擬未處理系統錯誤以測試警報 (Subcommand: error)
+   * 模擬未處理系統錯誤以測試警報
    */
   async handleError(interaction: ChatInputCommandInteraction) {
     throw new Error('🔥 [測試錯誤] 這是一次由開發人員手動觸發的系統 500 異常！用於驗證全域錯誤捕獲與 Discord Webhook 報警機制是否運作正常。');
   },
 
   /**
-   * 測試 OTel 遙測事件與日誌記錄 (Subcommand: otel)
+   * 測試 OTel
    */
   async handleOtel(interaction: ChatInputCommandInteraction) {
-    const result = await pingService.testOtel();
-
-    const embed = new EmbedBuilder()
-      .setColor('#9933ff') // 紫色
-      .setTitle('📊 OpenTelemetry 遙測測試')
-      .setDescription(result)
-      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
-      .setTimestamp();
-
+    const embed = await pingService.getOtelEmbed();
     await interaction.editReply({ embeds: [embed] });
   },
 
   /**
-   * 測試 Supabase 連線與讀寫 (Subcommand: db)
+   * 測試 Supabase DB
    */
   async handleDb(interaction: ChatInputCommandInteraction) {
-    const result = await pingService.testDb();
-
-    const embed = new EmbedBuilder()
-      .setColor('#3399ff') // 藍色
-      .setTitle('🗄️ Supabase DB 連線測試')
-      .setDescription(result)
-      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
-      .setTimestamp();
-
+    const embed = await pingService.getDbEmbed();
     await interaction.editReply({ embeds: [embed] });
   },
 
   /**
-   * 測試 LockService 分散式鎖防並發 (Subcommand: lock)
+   * 測試 LockService
    */
   async handleLock(interaction: ChatInputCommandInteraction) {
-    const result = await pingService.testLock();
-
-    const embed = new EmbedBuilder()
-      .setColor('#ff9933') // 橘色
-      .setTitle('🔒 分散式鎖測試')
-      .setDescription(result)
-      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
-      .setTimestamp();
-
+    const embed = await pingService.getLockEmbed();
     await interaction.editReply({ embeds: [embed] });
   },
 
   /**
-   * 測試 CacheService 快取 Hit/Miss (Subcommand: cache)
+   * 測試 CacheService
    */
   async handleCache(interaction: ChatInputCommandInteraction) {
-    const result = await pingService.testCache();
-
-    const embed = new EmbedBuilder()
-      .setColor(result.fromCache ? '#ffcc00' : '#ff3366') // Hit 為黃色，Miss 為粉紅
-      .setTitle(result.fromCache ? '⚡ 快取命中 (Cache Hit)' : '⚡ 快取遺失 (Cache Miss)')
-      .setDescription(result.message)
-      .addFields(
-        { name: 'Generated At', value: `\`${result.data.generatedAt}\``, inline: false },
-        { name: 'Random Key', value: `\`${result.data.random}\``, inline: true }
-      )
-      .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
-      .setTimestamp();
-
+    const embed = await pingService.getCacheEmbed();
     await interaction.editReply({ embeds: [embed] });
   },
 };

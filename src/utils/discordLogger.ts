@@ -5,6 +5,7 @@ import discordHttpClient from './discordHttpClient';
  */
 export class DiscordLogger {
   private static webhookUrl: string = process.env.DISCORD_WEBHOOK_URL || '';
+  private static infoWebhookUrl: string = process.env.DISCORD_INFO_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || '';
   private static httpClient = discordHttpClient;
 
   /**
@@ -81,4 +82,71 @@ export class DiscordLogger {
       console.error('❌ Error sending log to Discord Webhook:', err.message);
     }
   }
+
+  /**
+   * 發送普通資訊日誌與指令審計報告到 Discord Webhook
+   */
+  public static async sendInfoLog(params: {
+    message: string;
+    title?: string;
+    commandName?: string;
+    userId?: string;
+    guildId?: string;
+    timestamp: string;
+    environment: string;
+    extraFields?: Array<{ name: string; value: string; inline?: boolean }>;
+  }) {
+    if (!this.infoWebhookUrl) {
+      console.warn('⚠️  DISCORD_INFO_WEBHOOK_URL is not defined. Skipping Discord info log.');
+      return;
+    }
+
+    try {
+      const {
+        message,
+        title,
+        commandName,
+        userId,
+        guildId,
+        timestamp,
+        environment,
+        extraFields,
+      } = params;
+
+      const fields: any[] = [
+        { name: 'Detail', value: message || 'N/A', inline: false },
+        { name: 'Environment', value: environment, inline: true },
+        { name: 'Timestamp', value: timestamp, inline: true },
+      ];
+
+      if (commandName) {
+        fields.push({ name: 'Command', value: `\`/${commandName}\``, inline: true });
+      }
+      if (userId) {
+        fields.push({ name: 'User ID', value: `\`${userId}\``, inline: true });
+      }
+      if (guildId) {
+        fields.push({ name: 'Guild ID', value: `\`${guildId}\``, inline: true });
+      }
+
+      if (extraFields && extraFields.length > 0) {
+        fields.push(...extraFields);
+      }
+
+      const embed = {
+        title: title || 'ℹ️ System Info',
+        color: 3447003, // 藍色 (#3498db)
+        fields,
+        timestamp: new Date().toISOString(),
+        footer: { text: 'ButaiDCBot 審計監控' }
+      };
+
+      await this.httpClient.post(this.infoWebhookUrl, {
+        embeds: [embed],
+      });
+    } catch (err: any) {
+      console.error('❌ Error sending info log to Discord Webhook:', err.message);
+    }
+  }
 }
+export default DiscordLogger;
