@@ -15,7 +15,7 @@ export async function handleMessage(message: Message): Promise<void> {
   const authorTag = message.author.tag;
 
   // 2. 範例：關鍵字 (髒話/敏感詞) 屏蔽與提醒
-  const sensitiveKeywords = ['幹', '機車', '垃圾'];
+  const sensitiveKeywords = ['幹', '機車', 'joyce'];
   const hasSensitiveWord = sensitiveKeywords.some(keyword => content.includes(keyword));
   
   if (hasSensitiveWord) {
