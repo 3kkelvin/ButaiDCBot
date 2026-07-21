@@ -39,6 +39,16 @@ export const pingCommand = {
         .setDescription('⚡ 驗證全域快取 (Miss 耗時 2 秒/Hit 秒回)')
     ),
 
+  annotations: ['🛡️ 基礎建設'],
+  subcommandsMetadata: {
+    latency: { annotations: ['📡 延遲'] },
+    error: { annotations: ['🔥 報警'] },
+    otel: { annotations: ['📊 遙測'] },
+    db: { annotations: ['🗄️ 資料庫'] },
+    lock: { annotations: ['🔒 互斥鎖', '⏳ 5秒'] },
+    cache: { annotations: ['⚡ 快取', '🚀 合併'] }
+  },
+
   async execute(interaction: ChatInputCommandInteraction) {
     const subcommand = interaction.options.getSubcommand();
 

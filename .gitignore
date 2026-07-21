@@ -138,10 +138,15 @@ out
 # Vite logs files
 vite.config.js.timestamp-*
 # AI Test and Migration
-ai_db_test/
+ai_db_test/*
+!ai_db_test/queryAxiomLog.ts
 
 # Antigravity Skills & Instructions
-.agents/
+.agents/*
+!.agents/skills/
+!.agents/skills/axiom_debug/
+.agents/skills/*
+!.agents/skills/axiom_debug/
 
 # Local scripts
 /scripts/*-local.ps1

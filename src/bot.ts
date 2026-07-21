@@ -1,9 +1,10 @@
 import './utils/otel'; // 必須在第一行載入，以啟用 OTel 自動插樁
-import { Client, GatewayIntentBits, REST, Routes, Events } from 'discord.js';
+import { Client, GatewayIntentBits, Events } from 'discord.js';
 import dotenv from 'dotenv';
 import { commandsMap } from './utils/commands';
 import { handleBotInit } from './utils/botInit';
-import { handleInteraction, handleMessage } from './utils/botHandlers';
+import { setupInteractionController } from './controllers/interactionController';
+import { setupMessageController } from './controllers/messageController';
 import dns from 'dns';
 
 // 解決 Docker 容器中預設不支援 IPv6 導致的 ENETUNREACH 錯誤，強制全域優先連線 IPv4
@@ -30,9 +31,9 @@ const client = new Client({
 // 1. 當 Ready 時，執行一次性初始化與指令同步註冊
 client.once(Events.ClientReady, (readyClient) => handleBotInit(readyClient, commandsMap));
 
-// 2. 註冊常駐事件監聽器分流 (均已補強全域錯誤捕獲)
-client.on(Events.InteractionCreate, handleInteraction);
-client.on(Events.MessageCreate, handleMessage);
+// 2. 註冊常駐事件監聽器控制器
+setupInteractionController(client);
+setupMessageController(client);
 
 // 3. 登入 Discord
 client.login(TOKEN).catch((err) => {

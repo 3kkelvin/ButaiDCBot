@@ -12,6 +12,10 @@ import { helpCommand } from '../controllers/helpCommand';
 export interface ICommand {
   data: Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup"> | any;
   skipAuditLog?: boolean; // 允許指令自行設定是否略過 Webhook 指令審計記錄
+  annotations?: string[]; // 指令層級的自訂註解
+  subcommandsMetadata?: Record<string, {
+    annotations?: string[]; // 子指令層級的自訂註解
+  }>;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
 
