@@ -30,24 +30,25 @@
 
 ---
 
-## 3. 全域快取與請求合併 (Promise Collapsing)
+## 3. 高速全域快取 (Redis Cache & Promise Collapsing)
 
-快取系統實作於 `cacheService` 中，旨在減少 Discord API 請求次數並提升反應速度：
+快取系統實作於 `CacheService` 與 `CacheRepository` 中，旨在減少外部 API 請求與 Supabase DB 存取次數並提升反應速度：
 
-* **持久化快取 (`caches` 表)**：以 `JSONB` 格式儲存資料，並針對過期時間與分類建立索引以利低延遲檢索。
+* **Redis 記憶體快取 (Key-Value & TTL)**：採用 Redis `ioredis` 連線，將資料序列化 JSON 儲存，並利用 Redis 原生 `EXPIRE` / `SET EX` 實現 Sub-millisecond 讀取與自動過期清理。同時維護類別 (Category) 索引 Set 實現極速批次刪除。
 * **請求合併 (Promise Collapsing)**：
   在快取失效（Cache Miss）的瞬間，若有多個並發請求同時索取相同 key，`CacheService` 將會在記憶體中將該非同步任務 Promise 進行合併，**所有並發請求共享同一個進行中的 Promise**，僅由第一個請求穿透到外部 API / 資料庫，徹底防止快取擊穿與 API 頻率限制 (Rate Limit)。
 
 ---
 
-## 4. 原子分散式鎖與防連點 (Distributed Lock)
+## 4. Redis 原子分散式鎖與防連點 (Distributed Lock)
 
-為了防範 Discord 使用者對互動元件（按鈕、選單）進行惡意「連點」、快速狂按或並發請求導致的 Race Condition，系統採用基於資料庫唯一約束的原子分散式鎖：
+為了防範 Discord 使用者對互動元件（按鈕、選單）進行惡意「連點」、快速狂按或並發請求導致的 Race Condition，系統採用基於 Redis 的原子分散式鎖：
 
-* **唯一約束原子鎖 (`distributed_locks` 表)**：利用 `lock_key` 的主鍵唯一約束。多個請求並發寫入時，僅有一筆能成功 `INSERT`，其餘請求均會觸發 Unique Violation 違反約束。
+* **Redis 原子鎖 (`SET key value NX PX ttl`)**：利用 Redis 原生的原子 `SET ... NX PX` 指令。多個請求併發時，僅會有一個請求成功寫入並取得鎖，其餘請求直接失敗退避。
+* **Lua 腳本安全解鎖**：解鎖時比對 key 內的唯一標記值 (`lockValue`)，僅解鎖屬於該請求的鎖，防止因超時誤解鎖其他請求的新鎖。
 * **防點擊生命週期 (runWithLock)**：
   業務層核心以閉包實作，進入自動寫入鎖、執行完畢在 `finally` 區塊自動刪除鎖。未獲取鎖的並發請求會直接拋出 `429 AppError` 進行安全退避。
-* **死鎖自動清理**：排程系統每 5 分鐘自動清理一次過期（大於 5 分鐘）的鎖，確保異常重啟後不會造成永久死鎖。
+* **原生 TTL 自動死鎖防護**：由 Redis 記憶體引擎原生的 TTL 自動釋放過期鎖，無需定時執行掃描任務。
 
 ---
 

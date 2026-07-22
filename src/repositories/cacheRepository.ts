@@ -1,5 +1,4 @@
-import { BaseRepository } from './baseRepository';
-import { supabase } from '../utils/db';
+import redis from '../utils/redis';
 
 export interface IGlobalCache {
   cache_key: string;
@@ -10,11 +9,18 @@ export interface IGlobalCache {
 
 /**
  * 快取資料存取層 (DAL)
- * 負責 caches 資料表的底層操作
+ * 負責以 Redis 為底層的高速快取操作
  */
-export class CacheRepository extends BaseRepository<IGlobalCache> {
-  constructor() {
-    super('caches', 'cache_key');
+export class CacheRepository {
+  private readonly itemPrefix = 'cache:item:';
+  private readonly categoryPrefix = 'cache:cat:';
+
+  private getItemKey(cacheKey: string): string {
+    return `${this.itemPrefix}${cacheKey}`;
+  }
+
+  private getCategoryKey(category: string): string {
+    return `${this.categoryPrefix}${category}`;
   }
 
   /**
@@ -22,25 +28,21 @@ export class CacheRepository extends BaseRepository<IGlobalCache> {
    * @param cacheKey 快取鍵值
    */
   public async get(cacheKey: string): Promise<IGlobalCache | null> {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from(this.tableName)
-      .select('*')
-      .eq(this.primaryKeyName, cacheKey)
-      .gt('expires_at', now) // 防止讀取到已過期的快取
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw error;
+    const raw = await redis.get(this.getItemKey(cacheKey));
+    if (!raw) {
+      return null;
     }
-    return data as IGlobalCache;
+
+    try {
+      return JSON.parse(raw) as IGlobalCache;
+    } catch (err) {
+      console.error(`[CacheRepository] Failed to parse JSON for key ${cacheKey}:`, err);
+      return null;
+    }
   }
 
   /**
-   * 寫入或更新快取 (Upsert)
+   * 寫入或更新快取 (Set with TTL)
    * @param cacheKey 快取鍵值
    * @param category 業務類別
    * @param data 快取內容
@@ -53,19 +55,25 @@ export class CacheRepository extends BaseRepository<IGlobalCache> {
     ttlSeconds: number
   ): Promise<void> {
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+    const cacheObj: IGlobalCache = {
+      cache_key: cacheKey,
+      category,
+      data,
+      expires_at: expiresAt,
+    };
 
-    const { error } = await supabase
-      .from(this.tableName)
-      .upsert({
-        cache_key: cacheKey,
-        category,
-        data,
-        expires_at: expiresAt,
-      });
+    const itemKey = this.getItemKey(cacheKey);
+    const catKey = this.getCategoryKey(category);
 
-    if (error) {
-      throw error;
-    }
+    const pipeline = redis.pipeline();
+    // 1. 寫入快取主體並設定 TTL
+    pipeline.set(itemKey, JSON.stringify(cacheObj), 'EX', ttlSeconds);
+    // 2. 將此 cacheKey 加入類別索引 Set
+    pipeline.sadd(catKey, cacheKey);
+    // 類別索引 Set 的 TTL 為 1 天或預設過期
+    pipeline.expire(catKey, 86400);
+
+    await pipeline.exec();
   }
 
   /**
@@ -74,14 +82,10 @@ export class CacheRepository extends BaseRepository<IGlobalCache> {
    */
   public async deleteByKeys(keys: string | string[]): Promise<void> {
     const cacheKeys = Array.isArray(keys) ? keys : [keys];
-    const { error } = await supabase
-      .from(this.tableName)
-      .delete()
-      .in(this.primaryKeyName, cacheKeys);
+    if (cacheKeys.length === 0) return;
 
-    if (error) {
-      throw error;
-    }
+    const redisKeys = cacheKeys.map((k) => this.getItemKey(k));
+    await redis.del(...redisKeys);
   }
 
   /**
@@ -89,29 +93,19 @@ export class CacheRepository extends BaseRepository<IGlobalCache> {
    * @param category 業務類別
    */
   public async deleteByCategory(category: string): Promise<void> {
-    const { error } = await supabase
-      .from(this.tableName)
-      .delete()
-      .eq('category', category);
+    const catKey = this.getCategoryKey(category);
+    // 獲取所有屬於該 category 的 cacheKey
+    const cacheKeys = await redis.smembers(catKey);
 
-    if (error) {
-      throw error;
+    const pipeline = redis.pipeline();
+    if (cacheKeys.length > 0) {
+      const itemKeys = cacheKeys.map((k) => this.getItemKey(k));
+      pipeline.del(...itemKeys);
     }
-  }
+    // 刪除類別 Set
+    pipeline.del(catKey);
 
-  /**
-   * 清理所有已過期的快取
-   */
-  public async cleanupExpiredCaches(): Promise<void> {
-    const now = new Date().toISOString();
-    const { error } = await supabase
-      .from(this.tableName)
-      .delete()
-      .lt('expires_at', now);
-
-    if (error) {
-      throw error;
-    }
+    await pipeline.exec();
   }
 }
 

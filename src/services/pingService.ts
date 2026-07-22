@@ -58,7 +58,7 @@ export class PingService {
     let description = '';
 
     try {
-      // 1. 寫入一筆測試資料至 caches 表
+      // 1. 寫入一筆測試資料至 Redis 快取
       await cacheRepository.set(
         testKey, 
         'PING_TEST', 
@@ -73,46 +73,46 @@ export class PingService {
       await cacheRepository.deleteByKeys(testKey);
       
       if (retrieved && retrieved.data?.ping === 'pong') {
-        description = `✅ Supabase Postgres 連線與讀寫測試成功！已成功寫入快取表並讀回驗證。\n\n資料庫回傳值：\`${JSON.stringify(retrieved.data)}\``;
+        description = `✅ Redis 連線與讀寫測試成功！已成功寫入 Redis 快取並讀回驗證。\n\nRedis 回傳值：\`${JSON.stringify(retrieved.data)}\``;
       } else {
-        description = '❌ Supabase Postgres 測試失敗：讀回的資料與寫入的不符。';
+        description = '❌ Redis 測試失敗：讀回的資料與寫入的不符。';
       }
     } catch (error: any) {
-      console.error('[DB Test Error]', error);
-      description = `❌ Supabase Postgres 連線與讀寫測試失敗！\n\n錯誤訊息：\`${error.message}\``;
+      console.error('[Redis Test Error]', error);
+      description = `❌ Redis 連線與讀寫測試失敗！\n\n錯誤訊息：\`${error.message}\``;
     }
 
     return new EmbedBuilder()
       .setColor('#3399ff') // 藍色
-      .setTitle('🗄️ Supabase DB 連線測試')
+      .setTitle('🗄️ Redis 快取連線測試')
       .setDescription(description)
       .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
       .setTimestamp();
   }
 
   /**
-   * 測試 LockService 分散式鎖功能並組裝結果 Embed
+   * 測試 LockService Redis 分散式鎖功能並組裝結果 Embed
    */
   async getLockEmbed(): Promise<EmbedBuilder> {
     const lockKey = 'test_lock_key';
     
-    // 呼叫分散式鎖服務，加鎖 5 秒
-    const description = await lockService.runWithLock({ lockKey }, async () => {
+    // 呼叫 Redis 分散式鎖服務，加鎖 5 秒
+    const description = await lockService.runWithLock({ lockKey, ttlMs: 10000 }, async () => {
       // 模擬執行 5 秒的非同步業務邏輯
       await new Promise((resolve) => setTimeout(resolve, 5000));
-      return '✅ 分散式鎖成功取得並正常執行完畢！(鎖定時長 5 秒)';
+      return '✅ Redis 分散式鎖 (SET NX PX) 成功取得並正常執行完畢！(鎖定時長 5 秒)';
     });
 
     return new EmbedBuilder()
       .setColor('#ff9933') // 橘色
-      .setTitle('🔒 分散式鎖測試')
+      .setTitle('🔒 Redis 分散式鎖測試')
       .setDescription(description)
       .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
       .setTimestamp();
   }
 
   /**
-   * 測試 CacheService 快取功能並組裝結果 Embed
+   * 測試 CacheService Redis 快取功能並組裝結果 Embed
    */
   async getCacheEmbed(): Promise<EmbedBuilder> {
     const cacheKey = 'test_cache_service_key';
@@ -138,10 +138,10 @@ export class PingService {
       }
     );
 
-    const title = isCallbackExecuted ? '⚡ 快取遺失 (Cache Miss)' : '⚡ 快取命中 (Cache Hit)';
+    const title = isCallbackExecuted ? '⚡ Redis 快取遺失 (Cache Miss)' : '⚡ Redis 快取命中 (Cache Hit)';
     const message = isCallbackExecuted 
-      ? '✅ 快取遺失，已執行 Callback 進行運算並寫入快取！(等候 2 秒)' 
-      : '🚀 快取命中！直接自快取資料庫返回！(即時回應)';
+      ? '✅ 快取遺失，已執行 Callback 進行運算並寫入 Redis 快取！(等候 2 秒)' 
+      : '🚀 Redis 快取命中！直接自記憶體快取返回！(Sub-millisecond 回應)';
 
     return new EmbedBuilder()
       .setColor(isCallbackExecuted ? '#ff3366' : '#ffcc00') // Hit 為黃色，Miss 為粉紅

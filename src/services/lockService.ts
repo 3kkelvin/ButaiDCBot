@@ -4,6 +4,7 @@ import { AppError } from '../utils/appError';
 export interface ILockOptions {
   lockKey: string;
   releaseOnSuccess?: boolean; // 成功時是否主動釋放鎖。預設為 true。若為 false，則成功時保留鎖直至自動過期，僅在拋出異常時釋放。
+  ttlMs?: number; // 鎖定自動過期毫秒數，預設 30000ms (30秒)
 }
 
 /**
@@ -21,10 +22,10 @@ export class LockService {
     options: ILockOptions,
     callback: () => Promise<T>
   ): Promise<T> {
-    const { lockKey, releaseOnSuccess = true } = options;
+    const { lockKey, releaseOnSuccess = true, ttlMs = 30000 } = options;
 
-    // 1. 嘗試獲取鎖 (原子寫入)
-    const acquired = await lockRepository.acquireLock(lockKey);
+    // 1. 嘗試獲取鎖 (Redis 原子寫入)
+    const acquired = await lockRepository.acquireLock(lockKey, ttlMs);
     if (!acquired) {
       // 獲取鎖失敗，直接拋出 429 AppError
       throw new AppError('此操作正在處理中，請稍候重試。', 429);
@@ -41,7 +42,7 @@ export class LockService {
 
       return result;
     } catch (error) {
-      // 4. 過程中若拋出任何異常，一律在 finally 前主動釋放鎖，以防鎖殘留導致無法重試
+      // 4. 過程中若拋出任何異常，一律主動釋放鎖，以防鎖殘留導致無法重試
       try {
         await lockRepository.releaseLock(lockKey);
       } catch (releaseErr) {

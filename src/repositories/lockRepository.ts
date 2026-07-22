@@ -1,5 +1,4 @@
-import { supabase } from '../utils/db';
-import { BaseRepository } from './baseRepository';
+import redis from '../utils/redis';
 
 export interface IDistributedLock {
   lock_key: string;
@@ -8,58 +7,52 @@ export interface IDistributedLock {
 
 /**
  * Lock Repository (DAL)
- * 專門處理 PostgreSQL 中通用分散式鎖 (distributed_locks) 的資料存取
+ * 專門處理以 Redis 為基礎的通用分散式互斥鎖 (Distributed Lock)
  */
-export class LockRepository extends BaseRepository<IDistributedLock> {
-  constructor() {
-    super('distributed_locks', 'lock_key');
+export class LockRepository {
+  private readonly prefix = 'lock:';
+
+  private getKey(lockKey: string): string {
+    return `${this.prefix}${lockKey}`;
   }
 
   /**
-   * 嘗試獲取鎖 (原子寫入)
-   * @param lockKey 鎖的鍵值 (主鍵)
+   * 嘗試獲取鎖 (Redis 原子寫入 SET key value NX PX ttl)
+   * @param lockKey 鎖的鍵值
+   * @param ttlMs 鎖定自動過期時間 (毫秒)，預設 30000ms (30秒)
+   * @param lockValue 鎖定標記值 (預設為 'locked')
    * @returns 是否成功獲取鎖
    */
-  public async acquireLock(lockKey: string): Promise<boolean> {
-    try {
-      // 嘗試寫入一筆 Lock 紀錄
-      // 由於 lock_key 是 Primary Key，若併發寫入，僅會有一個成功，其它會拋出 Unique Violation 異常
-      await this.create({ lock_key: lockKey });
-      return true;
-    } catch (error: any) {
-      // 23505 為 PostgreSQL 的 Unique Violation 錯誤碼 (鍵值重複)
-      if (
-        error.code === '23505' || 
-        error.message?.includes('23505') || 
-        error.message?.includes('duplicate key')
-      ) {
-        return false;
-      }
-      throw error;
-    }
+  public async acquireLock(
+    lockKey: string,
+    ttlMs: number = 30000,
+    lockValue: string = 'locked'
+  ): Promise<boolean> {
+    const key = this.getKey(lockKey);
+    // SET key value PX ttlMs NX: 若 key 不存在則設置並傳回 OK，否則傳回 null
+    const result = await redis.set(key, lockValue, 'PX', ttlMs, 'NX');
+    return result === 'OK';
   }
 
   /**
-   * 釋放鎖 (原子刪除)
+   * 釋放鎖 (支援 Lua Script 安全釋放或直接刪除)
    * @param lockKey 鎖的鍵值
+   * @param lockValue 若提供值，僅當目前鎖的值相符時才執行刪除 (防誤釋放)
    */
-  public async releaseLock(lockKey: string): Promise<void> {
-    await this.delete(lockKey);
-  }
-
-  /**
-   * 清理已過期的殘留鎖
-   * @param minutes 鎖定超時分鐘數 (預設為 5 分鐘)
-   */
-  public async cleanupExpiredLocks(minutes: number = 5): Promise<void> {
-    const cutoff = new Date(Date.now() - minutes * 60 * 1000).toISOString();
-    const { error } = await supabase
-      .from(this.tableName)
-      .delete()
-      .lt('created_at', cutoff);
-
-    if (error) {
-      throw error;
+  public async releaseLock(lockKey: string, lockValue?: string): Promise<void> {
+    const key = this.getKey(lockKey);
+    if (lockValue) {
+      // 使用 Lua 腳本確保原子比對與解鎖
+      const luaScript = `
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+          return redis.call("del", KEYS[1])
+        else
+          return 0
+        end
+      `;
+      await redis.eval(luaScript, 1, key, lockValue);
+    } else {
+      await redis.del(key);
     }
   }
 }

@@ -1,8 +1,5 @@
 import cron from 'node-cron';
-import lockRepository from '../repositories/lockRepository';
-import cacheRepository from '../repositories/cacheRepository';
 import { DiscordLogger } from './discordLogger';
-import webhookRepository from '../repositories/webhookRepository';
 
 /**
  * 任務配置介面
@@ -17,16 +14,7 @@ interface JobConfig {
  * 所有背景排程任務的配置處
  */
 const jobs: JobConfig[] = [
-  {
-    name: '殘留鎖自動過期清理',
-    cron: '*/5 * * * *', // 每 5 分鐘執行一次
-    action: () => lockRepository.cleanupExpiredLocks(5),
-  },
-  {
-    name: '過期快取定時清理',
-    cron: '0 0 * * *', // 每天凌晨 00:00 執行
-    action: () => cacheRepository.cleanupExpiredCaches(),
-  }
+  // 未來如有其他背景定時任務，可在此註冊
 ];
 
 /**
@@ -34,6 +22,11 @@ const jobs: JobConfig[] = [
  */
 export const initSchedulers = () => {
   console.log('⏰ [Scheduler] 正在初始化背景排程任務...');
+
+  if (jobs.length === 0) {
+    console.log('ℹ️ [Scheduler] 無需要執行的 Cron 排程任務');
+    return;
+  }
 
   jobs.forEach((job) => {
     cron.schedule(job.cron, async () => {

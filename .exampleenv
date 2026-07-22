@@ -7,6 +7,8 @@ HEALTH_PORT=5000
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_KEY=your-supabase-anon-key
 DATABASE_URL=postgresql://postgres:your-db-password@db.your-project-id.supabase.co:5432/postgres
+# Redis Cache & Lock
+REDIS_URL=redis://localhost:6379
 # Discord Logger Webhook
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your-webhook-id
 DISCORD_INFO_WEBHOOK_URL=https://discord.com/api/webhooks/your-info-webhook-id

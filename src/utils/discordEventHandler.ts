@@ -5,6 +5,65 @@ import { AppError } from './appError';
 const tracer = trace.getTracer('butai-dc-bot');
 
 /**
+ * 輔助函式：從 Discord Interaction 物件中提取完整指令名稱與參數選項
+ */
+function parseInteractionDetails(interaction: any) {
+  const commandName = interaction?.commandName || 'Unknown';
+  let subcommandGroup: string | undefined;
+  let subcommand: string | undefined;
+
+  if (typeof interaction?.options?.getSubcommandGroup === 'function') {
+    try {
+      subcommandGroup = interaction.options.getSubcommandGroup(false) || undefined;
+    } catch (_) {}
+  }
+
+  if (typeof interaction?.options?.getSubcommand === 'function') {
+    try {
+      subcommand = interaction.options.getSubcommand(false) || undefined;
+    } catch (_) {}
+  }
+
+  let fullCommandName = commandName;
+  if (subcommandGroup && subcommand) {
+    fullCommandName = `${commandName} ${subcommandGroup} ${subcommand}`;
+  } else if (subcommand) {
+    fullCommandName = `${commandName} ${subcommand}`;
+  }
+
+  let optionsObj: Record<string, any> | undefined;
+  if (Array.isArray(interaction?.options?.data)) {
+    optionsObj = extractOptionsData(interaction.options.data);
+  }
+
+  return {
+    commandName,
+    subcommandGroup,
+    subcommand,
+    fullCommandName,
+    options: optionsObj && Object.keys(optionsObj).length > 0 ? JSON.stringify(optionsObj) : undefined,
+  };
+}
+
+/**
+ * 遞迴走訪 CommandInteractionOption 陣列，提取參數 Key-Value
+ */
+function extractOptionsData(optionsData: any[]): Record<string, any> {
+  const result: Record<string, any> = {};
+
+  for (const opt of optionsData) {
+    if (opt.options && opt.options.length > 0) {
+      const childRes = extractOptionsData(opt.options);
+      Object.assign(result, childRes);
+    } else if (opt.value !== undefined) {
+      result[opt.name] = opt.value;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Discord 事件高階異步包裝函數 (比照舊專案的 asyncHandler)
  * 負責自動捕獲事件執行中的所有未預期異常，進行全域 Webhook 報警，並對用戶端進行 Fail-Safe 錯誤反饋。
  * 
@@ -22,12 +81,19 @@ export function discordEventHandler<T extends any[]>(
       if (isInteraction) {
         // 💡 僅針對高價值的指令交互，自動建立 Root Span 並進行 Context 傳播
         const firstArg = args[0];
-        const commandName = firstArg?.commandName || 'Unknown';
-        const span = tracer.startSpan(`Command: /${commandName}`, {
+        const details = parseInteractionDetails(firstArg);
+
+        const span = tracer.startSpan(`Command: /${details.fullCommandName}`, {
           attributes: {
             userId: firstArg?.user?.id,
+            userName: firstArg?.user?.tag || firstArg?.user?.username,
             guildId: firstArg?.guildId || 'DM',
-            commandName,
+            channelId: firstArg?.channelId,
+            commandName: details.commandName,
+            ...(details.subcommandGroup && { subcommandGroup: details.subcommandGroup }),
+            ...(details.subcommand && { subcommand: details.subcommand }),
+            fullCommandName: details.fullCommandName,
+            ...(details.options && { commandOptions: details.options }),
           }
         });
 
