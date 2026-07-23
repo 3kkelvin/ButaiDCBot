@@ -154,3 +154,15 @@
        ```
     4. 部署後，Jenkins 即可利用 SSH 進入虛擬機執行健康檢查。
 
+---
+
+## 🛠️ 表現層與權限模組工具
+
+為簡化表現層 (Controller) 開發並統一回應邏輯，專案提供以下核心工具：
+
+1. 🛡️ **`PermissionGuard.requireRole(target, requiredRoles, customErrorMessage?)`**
+   - 1 行權限斷言守衛。若身分不相符，會直接拋出 `AppError(401)`。
+   - 全域 `discordEventHandler` 會自動捕獲並發送隱密訊息 (`ephemeral: true`)，不觸發系統警報。
+
+2. 📡 **`BaseResponse.send(interaction, payload, ephemeral?)`**
+   - 1 行安全回應工具。全自動辨識 `interaction` 的 `deferred` / `replied` 狀態，自動切換 `reply()` / `editReply()` / `followUp()`，避免重複回應引發 API 崩潰。

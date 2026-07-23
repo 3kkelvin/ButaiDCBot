@@ -1,5 +1,8 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, GuildMember, SlashCommandBuilder } from 'discord.js';
 import { pingService } from '../services/pingService';
+import { PermissionGuard } from '../utils/permissionGuard';
+import { config } from '../config';
+import { BaseResponse } from '../utils/baseResponse';
 
 /**
  * /ping 表現層指令控制器 (已經過 UI 與業務解耦優化)
@@ -37,6 +40,11 @@ export const pingCommand = {
       subcommand
         .setName('cache')
         .setDescription('⚡ 驗證全域快取 (Miss 耗時 2 秒/Hit 秒回)')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('role')
+        .setDescription('🔑 驗證技術人員身分組權限')
     ),
 
   annotations: ['🛡️ 基礎建設'],
@@ -46,7 +54,8 @@ export const pingCommand = {
     otel: { annotations: ['📊 遙測'] },
     db: { annotations: ['🗄️ 資料庫'] },
     lock: { annotations: ['🔒 互斥鎖', '⏳ 5秒'] },
-    cache: { annotations: ['⚡ 快取', '🚀 合併'] }
+    cache: { annotations: ['⚡ 快取', '🚀 合併'] },
+    role: { annotations: ['🔑 權限'] }
   },
 
   async execute(interaction: ChatInputCommandInteraction) {
@@ -77,12 +86,11 @@ export const pingCommand = {
         case 'cache':
           await this.handleCache(interaction);
           break;
+        case 'role':
+          await this.handleRole(interaction);
+          break;
         default:
-          if (interaction.deferred) {
-            await interaction.editReply({ content: `❌ 未知的子指令: ${subcommand}` });
-          } else {
-            await interaction.reply({ content: `❌ 未知的子指令: ${subcommand}`, ephemeral: true });
-          }
+          await BaseResponse.send(interaction, `❌ 未知的子指令: ${subcommand}`, true);
       }
     } catch (error) {
       // 由於錯誤會被頂層 bot.ts 捕獲，這裡直接向上拋出
@@ -96,7 +104,7 @@ export const pingCommand = {
   async handleLatency(interaction: ChatInputCommandInteraction) {
     const wsPing = interaction.client.ws.ping;
     const embed = await pingService.getPongEmbed(wsPing);
-    await interaction.reply({ embeds: [embed] });
+    await BaseResponse.send(interaction, embed);
   },
 
   /**
@@ -111,7 +119,7 @@ export const pingCommand = {
    */
   async handleOtel(interaction: ChatInputCommandInteraction) {
     const embed = await pingService.getOtelEmbed();
-    await interaction.editReply({ embeds: [embed] });
+    await BaseResponse.send(interaction, embed);
   },
 
   /**
@@ -119,7 +127,7 @@ export const pingCommand = {
    */
   async handleDb(interaction: ChatInputCommandInteraction) {
     const embed = await pingService.getDbEmbed();
-    await interaction.editReply({ embeds: [embed] });
+    await BaseResponse.send(interaction, embed);
   },
 
   /**
@@ -127,7 +135,7 @@ export const pingCommand = {
    */
   async handleLock(interaction: ChatInputCommandInteraction) {
     const embed = await pingService.getLockEmbed();
-    await interaction.editReply({ embeds: [embed] });
+    await BaseResponse.send(interaction, embed);
   },
 
   /**
@@ -135,6 +143,20 @@ export const pingCommand = {
    */
   async handleCache(interaction: ChatInputCommandInteraction) {
     const embed = await pingService.getCacheEmbed();
-    await interaction.editReply({ embeds: [embed] });
+    await BaseResponse.send(interaction, embed);
+  },
+
+  /**
+   * 測試身分組權限守衛
+   */
+  async handleRole(interaction: ChatInputCommandInteraction) {
+    // 1. 表現層門檻權限：1 行斷言（無權限直接拋出 401 AppError 中斷）
+    PermissionGuard.requireRole(interaction, config.roles.tech, '❌ 您沒有技術人員身分組權限，無法執行此指令！');
+
+    // 2. 呼叫純粹的 BLL 服務
+    const resultMessage = await pingService.getRoleVerificationResult();
+
+    // 3. 表現層安全回應：1 行搞定（自動識別 deferred / replied / unreplied）
+    await BaseResponse.send(interaction, resultMessage);
   },
 };

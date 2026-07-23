@@ -1,8 +1,10 @@
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, GuildMember } from 'discord.js';
 import { otelLogger } from '../utils/otelLogger';
 import cacheRepository from '../repositories/cacheRepository';
 import lockService from './lockService';
 import cacheService from './cacheService';
+import { PermissionGuard } from '../utils/permissionGuard';
+import { config } from '../config';
 
 /**
  * 驗證 Ping 相關基礎設施業務服務 (BLL)
@@ -153,6 +155,13 @@ export class PingService {
       )
       .setFooter({ text: 'ButaiDCBot 基礎設施驗證' })
       .setTimestamp();
+  }
+
+  /**
+   * 驗證技術人員身分組權限業務邏輯 (BLL)
+   */
+  async getRoleVerificationResult(): Promise<string> {
+    return '成功';
   }
 }
 
