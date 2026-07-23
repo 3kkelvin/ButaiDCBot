@@ -11,5 +11,10 @@ export const devConfig = {
   },
   roles: {
     tech: '1527348833066025130', // 測試環境技術公務員身分組 ID
+    voter: '1527348832965365961', // 選民 Role ID
+    official: '1527348832965365960', // 正式成員 Role ID
+    temporary: '1527348832965365959', // 臨時成員 Role ID
+    special: '1527348832986202238', // 特殊人士 Role ID
+    prisoner: '1527348833057771557', // 囚犯 Role ID
   },
 };

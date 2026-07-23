@@ -5,6 +5,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { pingCommand } from '../controllers/pingCommand';
 import { helpCommand } from '../controllers/helpCommand';
 import { roleDividerCommand } from '../controllers/roleDividerCommand';
+import { roleCommand } from '../controllers/roleCommand';
 
 
 /**
@@ -25,6 +26,7 @@ export const commandsList: ICommand[] = [
   pingCommand as ICommand,
   helpCommand as ICommand,
   roleDividerCommand as ICommand,
+  roleCommand as ICommand,
 ];
 
 // 將指令轉化為以 name 為 Key 的 Map，方便 bot.ts 查詢路由

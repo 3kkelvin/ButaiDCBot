@@ -21,7 +21,7 @@ if (!TOKEN) {
 }
 
 // 初始化 Discord Client
-const client = new Client({
+export const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,

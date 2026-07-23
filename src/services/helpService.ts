@@ -51,7 +51,7 @@ export class HelpService {
         // 2. 無子指令：直接列出主指令
         const description = json.description || '無描述資訊';
         embed.addFields({
-          name: `\`/${name}\`  (${auditTag})${mainAnnotations}`,
+          name: `\`/${name}\`  ${mainAnnotations}${auditTag}`,
           value: description,
           inline: false
         });

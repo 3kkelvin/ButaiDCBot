@@ -21,7 +21,7 @@ export const roleDividerCommand: ICommand = {
         .setRequired(false)
     ),
 
-  annotations: ['身份組管理'],
+  annotations: ['身份組分割'],
 
   async execute(interaction: ChatInputCommandInteraction) {
     // 1. 伺服器環境檢查 

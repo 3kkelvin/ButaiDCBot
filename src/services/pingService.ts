@@ -5,6 +5,7 @@ import lockService from './lockService';
 import cacheService from './cacheService';
 import { PermissionGuard } from '../utils/permissionGuard';
 import { config } from '../config';
+import { RedisKeys } from '../utils/redisKeys';
 
 /**
  * 驗證 Ping 相關基礎設施業務服務 (BLL)
@@ -56,7 +57,7 @@ export class PingService {
    * 測試 Supabase Postgres 讀寫連線並組裝結果 Embed
    */
   async getDbEmbed(): Promise<EmbedBuilder> {
-    const testKey = 'db_ping_test_key';
+    const testKey = RedisKeys.Cache.pingDbTest();
     let description = '';
 
     try {
@@ -96,7 +97,7 @@ export class PingService {
    * 測試 LockService Redis 分散式鎖功能並組裝結果 Embed
    */
   async getLockEmbed(): Promise<EmbedBuilder> {
-    const lockKey = 'test_lock_key';
+    const lockKey = RedisKeys.Lock.pingTest();
     
     // 呼叫 Redis 分散式鎖服務，加鎖 5 秒
     const description = await lockService.runWithLock({ lockKey, ttlMs: 10000 }, async () => {
@@ -117,7 +118,7 @@ export class PingService {
    * 測試 CacheService Redis 快取功能並組裝結果 Embed
    */
   async getCacheEmbed(): Promise<EmbedBuilder> {
-    const cacheKey = 'test_cache_service_key';
+    const cacheKey = RedisKeys.Cache.pingServiceVerify();
     const cacheCategory = 'CACHE_VERIFY';
     
     let isCallbackExecuted = false;

@@ -53,8 +53,8 @@ export const pingCommand = {
     error: { annotations: ['🔥 報警'] },
     otel: { annotations: ['📊 遙測'] },
     db: { annotations: ['🗄️ 資料庫'] },
-    lock: { annotations: ['🔒 互斥鎖', '⏳ 5秒'] },
-    cache: { annotations: ['⚡ 快取', '🚀 合併'] },
+    lock: { annotations: ['🔒 互斥鎖'] },
+    cache: { annotations: ['⚡ 快取'] },
     role: { annotations: ['🔑 權限'] }
   },
 

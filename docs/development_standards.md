@@ -109,3 +109,16 @@
 ### D. 非關鍵旁路服務 Fail-Safe 容錯
 * 非核心金流與非關鍵主線的輔助服務（例如：行事曆同步、發送 Email、日誌遙測上傳），其底層出錯絕對不得阻斷使用者的主要操作。
 * 在 Service 層呼叫這些服務時，必須在呼叫處以 `try-catch` 包裹並吞掉異常，僅記錄 OTel 日誌與警告，確保主業務流程能 Fail-Safe 成功完成。
+
+---
+
+## 5. Redis 快取與分散式鎖 Key 集中管理規範
+
+* **強制集中宣告**：
+  * 全專案所有 Redis 快取 (Cache) 與分散式鎖 (Lock) 的鍵值 (Keys)，**必須統一在 `src/utils/redisKeys.ts` 的 `RedisKeys` 模組中集中宣告**。
+  * **嚴禁在業務 Service 或 Controller 程式碼中硬編碼 (Hardcode) 任何鍵值字串**。
+* **命名空間區分**：
+  * **分散式鎖 (Lock)**：宣告於 `RedisKeys.Lock` 下。由於 `LockRepository` 底層已內建 `lock:` 前綴，工廠函數產出之 Key 名稱**不得手動加上 `lock:`**，防止產生雙重前綴。
+  * **快取 (Cache)**：宣告於 `RedisKeys.Cache` 下。
+* **型別安全工廠**：
+  * 對於帶有動態參數（如 `guildId`、`userId`）的鍵值，必須以強型別工廠函數（如 `roleDividerFix: (guildId: string) => string`）實作，確保調用端擁有完善的自動補全與型別防錯。

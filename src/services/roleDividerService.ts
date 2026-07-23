@@ -1,5 +1,6 @@
 import { EmbedBuilder, Guild, GuildMember } from 'discord.js';
 import lockService from './lockService';
+import { RedisKeys } from '../utils/redisKeys';
 
 /**
  * 分隔身分組判定規則（名稱同時包含以下所有字元）
@@ -112,7 +113,7 @@ export class RoleDividerService {
    * @param guild Discord 伺服器
    */
   public async fixAllMembers(guild: Guild): Promise<IFixAllMembersResult> {
-    const lockKey = `lock:role_divider_fix:${guild.id}`;
+    const lockKey = RedisKeys.Lock.roleDividerFix(guild.id);
 
     return await lockService.runWithLock(
       {

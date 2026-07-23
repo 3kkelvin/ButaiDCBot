@@ -35,8 +35,8 @@
 快取系統實作於 `CacheService` 與 `CacheRepository` 中，旨在減少外部 API 請求與 Supabase DB 存取次數並提升反應速度：
 
 * **Redis 記憶體快取 (Key-Value & TTL)**：採用 Redis `ioredis` 連線，將資料序列化 JSON 儲存，並利用 Redis 原生 `EXPIRE` / `SET EX` 實現 Sub-millisecond 讀取與自動過期清理。同時維護類別 (Category) 索引 Set 實現極速批次刪除。
-* **請求合併 (Promise Collapsing)**：
-  在快取失效（Cache Miss）的瞬間，若有多個並發請求同時索取相同 key，`CacheService` 將會在記憶體中將該非同步任務 Promise 進行合併，**所有並發請求共享同一個進行中的 Promise**，僅由第一個請求穿透到外部 API / 資料庫，徹底防止快取擊穿與 API 頻率限制 (Rate Limit)。
+* **Key 集中管理中心 (`RedisKeys`)**：
+  全系統所有快取 Key 均統一於 `src/utils/redisKeys.ts` 之 `RedisKeys.Cache` 工廠宣告，嚴禁硬編碼字串。
 
 ---
 
@@ -44,6 +44,8 @@
 
 為了防範 Discord 使用者對互動元件（按鈕、選單）進行惡意「連點」、快速狂按或並發請求導致的 Race Condition，系統採用基於 Redis 的原子分散式鎖：
 
+* **Key 集中管理中心 (`RedisKeys`)**：
+  全系統所有分散式鎖 Key 均統一於 `src/utils/redisKeys.ts` 之 `RedisKeys.Lock` 工廠宣告（底層自動帶入 `lock:` 前綴）。
 * **Redis 原子鎖 (`SET key value NX PX ttl`)**：利用 Redis 原生的原子 `SET ... NX PX` 指令。多個請求併發時，僅會有一個請求成功寫入並取得鎖，其餘請求直接失敗退避。
 * **Lua 腳本安全解鎖**：解鎖時比對 key 內的唯一標記值 (`lockValue`)，僅解鎖屬於該請求的鎖，防止因超時誤解鎖其他請求的新鎖。
 * **防點擊生命週期 (runWithLock)**：

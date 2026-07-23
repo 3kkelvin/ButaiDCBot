@@ -1,5 +1,8 @@
 import cron from 'node-cron';
 import { DiscordLogger } from './discordLogger';
+import { client } from '../bot';
+import { config } from '../config';
+import { roleService } from '../services/roleService';
 
 /**
  * 任務配置介面
@@ -14,7 +17,17 @@ interface JobConfig {
  * 所有背景排程任務的配置處
  */
 const jobs: JobConfig[] = [
-  // 未來如有其他背景定時任務，可在此註冊
+  {
+    name: 'Role Identity Check (每日凌晨 4 點身分核對)',
+    cron: '0 4 * * *',
+    action: async () => {
+      const guild = client.guilds.cache.get(config.guildId);
+      if (guild) {
+        console.log(`[Scheduler] 開始對 Guild (${guild.name}) 執行每日定時身分核對...`);
+        await roleService.identityCheck(guild);
+      }
+    },
+  },
 ];
 
 /**
