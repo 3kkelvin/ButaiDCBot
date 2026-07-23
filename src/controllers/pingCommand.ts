@@ -44,7 +44,7 @@ export const pingCommand = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('role')
-        .setDescription('🔑 驗證技術人員身分組權限')
+        .setDescription('🔑 驗證技術公務員身分組權限')
     ),
 
   annotations: ['🛡️ 基礎建設'],
@@ -151,7 +151,7 @@ export const pingCommand = {
    */
   async handleRole(interaction: ChatInputCommandInteraction) {
     // 1. 表現層門檻權限：1 行斷言（無權限直接拋出 401 AppError 中斷）
-    PermissionGuard.requireRole(interaction, config.roles.tech, '❌ 您沒有技術人員身分組權限，無法執行此指令！');
+    PermissionGuard.requireRole(interaction, config.roles.tech, '❌ 您沒有技術公務員身分組權限，無法執行此指令！');
 
     // 2. 呼叫純粹的 BLL 服務
     const resultMessage = await pingService.getRoleVerificationResult();

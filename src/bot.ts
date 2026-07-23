@@ -5,6 +5,7 @@ import { commandsMap } from './utils/commands';
 import { handleBotInit } from './utils/botInit';
 import { setupInteractionController } from './controllers/interactionController';
 import { setupMessageController } from './controllers/messageController';
+import { setupGuildMemberUpdateController } from './controllers/guildMemberUpdateController';
 import dns from 'dns';
 
 // 解決 Docker 容器中預設不支援 IPv6 導致的 ENETUNREACH 錯誤，強制全域優先連線 IPv4
@@ -25,6 +26,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
   ],
 });
 
@@ -34,6 +36,7 @@ client.once(Events.ClientReady, (readyClient) => handleBotInit(readyClient, comm
 // 2. 註冊常駐事件監聽器控制器
 setupInteractionController(client);
 setupMessageController(client);
+setupGuildMemberUpdateController(client);
 
 // 3. 登入 Discord
 client.login(TOKEN).catch((err) => {

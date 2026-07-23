@@ -158,7 +158,7 @@ export class PingService {
   }
 
   /**
-   * 驗證技術人員身分組權限業務邏輯 (BLL)
+   * 驗證技術公務員身分組權限業務邏輯 (BLL)
    */
   async getRoleVerificationResult(): Promise<string> {
     return '成功';
