@@ -2,6 +2,7 @@ import { EmbedBuilder, Guild, GuildMember } from 'discord.js';
 import lockService from './lockService';
 import { RedisKeys } from '../utils/redisKeys';
 import { RoleUtils } from '../utils/roleUtils';
+import discordRepository from '../repositories/discordRepository';
 
 export interface IRoleDividerResult {
   addedRoles: string[];
@@ -113,7 +114,7 @@ export class RoleDividerService {
       },
       async () => {
         // 確保取得最新全服成員列表
-        const membersCollection = await guild.members.fetch();
+        const membersCollection = await discordRepository.getGuildMembers(guild);
         const members = Array.from(membersCollection.values());
 
         let updatedCount = 0;

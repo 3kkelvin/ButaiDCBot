@@ -3,6 +3,7 @@ import { config } from '../config';
 import lockService from './lockService';
 import { RedisKeys } from '../utils/redisKeys';
 import { RoleUtils } from '../utils/roleUtils';
+import discordRepository from '../repositories/discordRepository';
 
 export interface IIdentityCheckResult {
   totalMembers: number;
@@ -62,7 +63,7 @@ export class RoleService {
         const temporaryRoleId = configuredRoles.temporary;
 
         // 全服成員取得
-        const membersCollection = await guild.members.fetch();
+        const membersCollection = await discordRepository.getGuildMembers(guild);
         const members = Array.from(membersCollection.values());
 
         let addedTemporaryCount = 0;
@@ -172,7 +173,7 @@ export class RoleService {
    * @param guild Discord 伺服器實例
    */
   public async getPositionListEmbed(guild: Guild): Promise<EmbedBuilder> {
-    const membersCollection = await guild.members.fetch();
+    const membersCollection = await discordRepository.getGuildMembers(guild);
     const allMembers = Array.from(membersCollection.values()).filter((m) => !m.user.bot);
 
     // 取得所有身分組，並依據 position 降冪排序 (最高位階在最前面)
