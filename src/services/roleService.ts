@@ -1,7 +1,8 @@
-import { EmbedBuilder, Guild } from 'discord.js';
+import { EmbedBuilder, Guild, Role } from 'discord.js';
 import { config } from '../config';
 import lockService from './lockService';
 import { RedisKeys } from '../utils/redisKeys';
+import { RoleUtils } from '../utils/roleUtils';
 
 export interface IIdentityCheckResult {
   totalMembers: number;
@@ -155,6 +156,128 @@ export class RoleService {
       .setFooter({ text: '預設優先權：選民 > 正式成員 > 臨時成員 > 特殊人士 > 囚犯' })
       .setTimestamp();
   }
+
+  /**
+   * 取得伺服器公職與管理人員列表 Embed
+   * 
+   * 排序順序：
+   * 1. 服主
+   * 2. 大管理
+   * 3. 技術公務員
+   * 4. 管理身分組（位在 adminTag 下方，直到第一個裝飾身分組）
+   * 5. 公務身分組（位在 civilTag 下方，直到第一個裝飾身分組）
+   * 
+   * 格式：身分組名字：人員名字A、B
+   * 
+   * @param guild Discord 伺服器實例
+   */
+  public async getPositionListEmbed(guild: Guild): Promise<EmbedBuilder> {
+    const membersCollection = await guild.members.fetch();
+    const allMembers = Array.from(membersCollection.values()).filter((m) => !m.user.bot);
+
+    // 取得所有身分組，並依據 position 降冪排序 (最高位階在最前面)
+    const sortedRoles = Array.from(guild.roles.cache.values()).sort(
+      (a, b) => b.position - a.position
+    );
+
+    // 取得指定固定身分組 ID
+    const ownerRoleId = config.roles.owner;
+    const headAdminRoleId = config.roles.headAdmin;
+    const techRoleId = config.roles.tech;
+    const adminTagRoleId = config.roles.adminTag;
+    const civilTagRoleId = config.roles.civilTag;
+
+    // 1. 固定三項身分組的角色 ID 集合
+    const fixedRoleIds = [ownerRoleId, headAdminRoleId, techRoleId].filter(Boolean);
+    const fixedRoleSet = new Set(fixedRoleIds);
+
+    // 2. 搜尋「管理身分組」範圍：位於 adminTag 之下，直至第一個 Divider Role 止
+    const adminRoles: Role[] = [];
+    if (adminTagRoleId) {
+      const adminTagIdx = sortedRoles.findIndex((r) => r.id === adminTagRoleId);
+      if (adminTagIdx !== -1) {
+        for (let i = adminTagIdx + 1; i < sortedRoles.length; i++) {
+          const role = sortedRoles[i];
+          if (RoleUtils.isDividerRole(role.name)) {
+            break;
+          }
+          if (role.id !== guild.id && !fixedRoleSet.has(role.id)) {
+            adminRoles.push(role);
+          }
+        }
+      }
+    }
+
+    // 3. 搜尋「公務身分組」範圍：位於 civilTag 之下，直至第一個 Divider Role 止
+    const civilRoles: Role[] = [];
+    if (civilTagRoleId) {
+      const civilTagIdx = sortedRoles.findIndex((r) => r.id === civilTagRoleId);
+      if (civilTagIdx !== -1) {
+        for (let i = civilTagIdx + 1; i < sortedRoles.length; i++) {
+          const role = sortedRoles[i];
+          if (RoleUtils.isDividerRole(role.name)) {
+            break;
+          }
+          if (role.id !== guild.id && !fixedRoleSet.has(role.id)) {
+            civilRoles.push(role);
+          }
+        }
+      }
+    }
+
+    const formatRoleLine = (roleId: string | undefined): string | null => {
+      if (!roleId) return null;
+      const role = guild.roles.cache.get(roleId);
+      if (!role) return null;
+
+      const members = allMembers.filter((m) => m.roles.cache.has(role.id));
+      const names = members.map((m) => `<@${m.id}>`).join('、');
+      return `<@&${role.id}>：${names || '無'}`;
+    };
+
+    const lines: string[] = [];
+
+    // 固定順序 1: 服主
+    const ownerLine = formatRoleLine(ownerRoleId);
+    if (ownerLine) lines.push(ownerLine);
+
+    // 固定順序 2: 大管理
+    const headAdminLine = formatRoleLine(headAdminRoleId);
+    if (headAdminLine) lines.push(headAdminLine);
+
+    // 固定順序 3: 技術公務員
+    const techLine = formatRoleLine(techRoleId);
+    if (techLine) lines.push(techLine);
+    
+    // 固定順序 4: 管理身分組底下的依序排（管理身分組前空一行）
+    lines.push(''); // 空一行
+    const adminHeader = adminTagRoleId ? `<@&${adminTagRoleId}>：` : '管理身分組：';
+    lines.push(adminHeader);
+    for (const role of adminRoles) {
+      const members = allMembers.filter((m) => m.roles.cache.has(role.id));
+      const names = members.map((m) => `<@${m.id}>`).join('、');
+      lines.push(`<@&${role.id}>：${names || '無'}`);
+    }
+
+    // 固定順序 5: 公務身分組底下的依序排（公務身分組前空一行）
+    lines.push(''); // 空一行
+    const civilHeader = civilTagRoleId ? `<@&${civilTagRoleId}>：` : '公務身分組：';
+    lines.push(civilHeader);
+    for (const role of civilRoles) {
+      const members = allMembers.filter((m) => m.roles.cache.has(role.id));
+      const names = members.map((m) => `<@${m.id}>`).join('、');
+      lines.push(`<@&${role.id}>：${names || '無'}`);
+    }
+
+    const descriptionText = lines.length > 0 ? lines.join('\n') : '尚未設定或找不到任何公職身分組資料。';
+
+    return new EmbedBuilder()
+      .setTitle('伺服器公職人員列表')
+      .setColor(0x00aeef)
+      .setDescription(descriptionText)
+      .setTimestamp();
+  }
 }
 
 export const roleService = new RoleService();
+

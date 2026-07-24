@@ -1,11 +1,7 @@
 import { EmbedBuilder, Guild, GuildMember } from 'discord.js';
 import lockService from './lockService';
 import { RedisKeys } from '../utils/redisKeys';
-
-/**
- * 分隔身分組判定規則（名稱同時包含以下所有字元）
- */
-const DIVIDER_CONTAINS = ['[', ']'];
+import { RoleUtils } from '../utils/roleUtils';
 
 export interface IRoleDividerResult {
   addedRoles: string[];
@@ -22,12 +18,6 @@ export interface IFixAllMembersResult {
  * 身份組分隔線管理服務 (BLL)
  */
 export class RoleDividerService {
-  /**
-   * 判斷指定的身分組是否為分隔用身分組
-   */
-  public isDividerRole(roleName: string): boolean {
-    return DIVIDER_CONTAINS.every((char) => roleName.includes(char));
-  }
 
   /**
    * 檢查並修復單一成員的身分組分隔線狀態
@@ -56,7 +46,7 @@ export class RoleDividerService {
 
     // 預先留存原先非分隔用身分組 (含 @everyone)
     for (const [roleId, role] of member.roles.cache.entries()) {
-      if (!this.isDividerRole(role.name)) {
+      if (!RoleUtils.isDividerRole(role.name)) {
         targetRoleIds.add(roleId);
       }
     }
@@ -65,7 +55,7 @@ export class RoleDividerService {
 
     // 由下往上計算成員應有的最終身分組
     for (const role of sortedRoles) {
-      if (this.isDividerRole(role.name)) {
+      if (RoleUtils.isDividerRole(role.name)) {
         // 若該分隔身分組高於機器人自身最高身分組 (!role.editable)，機器人無權操控，保持原狀跳過
         if (!role.editable) {
           shouldAddDivider = false;
