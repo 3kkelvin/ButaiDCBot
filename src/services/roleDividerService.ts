@@ -3,17 +3,7 @@ import lockService from './lockService';
 import { RedisKeys } from '../utils/redisKeys';
 import { RoleUtils } from '../utils/roleUtils';
 import discordRepository from '../repositories/discordRepository';
-
-export interface IRoleDividerResult {
-  addedRoles: string[];
-  removedRoles: string[];
-}
-
-export interface IFixAllMembersResult {
-  totalMembers: number;
-  processedMembers: number;
-  updatedMembers: number;
-}
+import { IRoleDividerDTO, IFixAllMembersDTO } from '../models/roleDivider/roleDividerDTO';
 
 /**
  * 身份組分隔線管理服務 (BLL)
@@ -27,8 +17,8 @@ export class RoleDividerService {
    * @param member Discord 伺服器成員
    * @returns 異動的身分組名稱紀錄
    */
-  public async fixMemberRoles(member: GuildMember): Promise<IRoleDividerResult> {
-    const result: IRoleDividerResult = {
+  public async fixMemberRoles(member: GuildMember): Promise<IRoleDividerDTO> {
+    const result: IRoleDividerDTO = {
       addedRoles: [],
       removedRoles: [],
     };
@@ -103,7 +93,7 @@ export class RoleDividerService {
    * 
    * @param guild Discord 伺服器
    */
-  public async fixAllMembers(guild: Guild): Promise<IFixAllMembersResult> {
+  public async fixAllMembers(guild: Guild): Promise<IFixAllMembersDTO> {
     const lockKey = RedisKeys.Lock.roleDividerFix(guild.id);
 
     return await lockService.runWithLock(

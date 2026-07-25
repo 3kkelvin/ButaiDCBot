@@ -1,13 +1,5 @@
 import cacheRepository from '../repositories/cacheRepository';
-
-/**
- * 快取配置選項
- */
-export interface ICacheOptions<T> {
-  key: string;
-  category: string;
-  ttl: number | ((data: T) => number); // 支援固定秒數或動態計算函式
-}
+import { ICacheOptions } from '../models/cache/cacheOptions';
 
 /**
  * 全域快取服務 (BLL)

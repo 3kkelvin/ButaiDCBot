@@ -1,11 +1,5 @@
 import redis from '../utils/redis';
-
-export interface IGlobalCache {
-  cache_key: string;
-  category: string;
-  data: any;
-  expires_at: string;
-}
+import { IGlobalCache } from '../models/redis/globalCache';
 
 /**
  * 快取資料存取層 (DAL)

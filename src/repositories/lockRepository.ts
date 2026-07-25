@@ -1,9 +1,5 @@
 import redis from '../utils/redis';
-
-export interface IDistributedLock {
-  lock_key: string;
-  created_at: string;
-}
+import { IDistributedLock } from '../models/redis/distributedLock';
 
 /**
  * Lock Repository (DAL)
