@@ -64,6 +64,11 @@ export const roleCommand: ICommand = {
         .addStringOption((option) =>
           option.setName('sure').setDescription('請填寫yes').setRequired(true)
         )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('total')
+        .setDescription('顯示伺服器基本資訊與各階層身分組人數統計')
     ),
 
   annotations: ['身份組管理'],
@@ -122,6 +127,12 @@ export const roleCommand: ICommand = {
           interaction.options.getString('sure', true)
         );
         await BaseResponse.send(interaction, message);
+        break;
+      }
+      case 'total': {
+        await interaction.deferReply({ ephemeral: false });
+        const embed = await roleService.getTotalEmbed(interaction.guild);
+        await BaseResponse.send(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
         break;
       }
       default:

@@ -348,6 +348,68 @@ export class RoleService {
   }
 
   /**
+   * 取得伺服器擁有者、總人數與 ROLE_PRIORITY_KEYS 各身分組人數統計 Embed (給表現層 Controller 呼叫)
+   */
+  public async getTotalEmbed(guild: Guild): Promise<EmbedBuilder> {
+    const membersCollection = await discordRepository.getGuildMembers(guild);
+    const allMembers = Array.from(membersCollection.values());
+    const humanMembers = allMembers.filter((m) => !m.user.bot);
+
+    const configuredRoles = {
+      voter: config.roles.voter,
+      official: config.roles.official,
+      temporary: config.roles.temporary,
+      special: config.roles.special,
+      prisoner: config.roles.prisoner,
+    };
+
+    const countByRole = (roleId: string | undefined): number => {
+      if (!roleId) return 0;
+      return humanMembers.filter((m) => m.roles.cache.has(roleId)).length;
+    };
+
+    const voterCount = countByRole(configuredRoles.voter);
+    const officialCount = countByRole(configuredRoles.official);
+    const temporaryCount = countByRole(configuredRoles.temporary);
+    const specialCount = countByRole(configuredRoles.special);
+    const prisonerCount = countByRole(configuredRoles.prisoner);
+
+    const getRoleInfo = (roleId: string | undefined, defaultName: string) => {
+      if (!roleId) return { name: defaultName, mention: defaultName };
+      const role = guild.roles.cache.get(roleId);
+      return {
+        name: role ? role.name : defaultName,
+        mention: `<@&${roleId}>`,
+      };
+    };
+
+    const voterInfo = getRoleInfo(configuredRoles.voter, '選民');
+    const officialInfo = getRoleInfo(configuredRoles.official, '正式成員');
+    const temporaryInfo = getRoleInfo(configuredRoles.temporary, '臨時成員');
+    const specialInfo = getRoleInfo(configuredRoles.special, '特殊人士');
+    const prisonerInfo = getRoleInfo(configuredRoles.prisoner, '囚犯');
+
+    const createdUnix = Math.floor(guild.createdTimestamp / 1000);
+    const ageInDays = Math.floor((Date.now() - guild.createdTimestamp) / (1000 * 60 * 60 * 24));
+
+    return new EmbedBuilder()
+      .setTitle('伺服器與階層身分組人數統計')
+      .setColor(0x9b59b6)
+      .addFields(
+        { name: '服主', value: `<@${guild.ownerId}>`, inline: true },
+        { name: '伺服器創建日期', value: `<t:${createdUnix}:F> (已成立 ${ageInDays} 天)`, inline: false },
+        { name: '身分組總數', value: `${guild.roles.cache.size} 個`, inline: true },
+        { name: '成員總人數', value: `${humanMembers.length} 人 (全服含機器人: ${allMembers.length} 人)`, inline: true },  
+        { name: voterInfo.name, value: `**${voterCount}** 人`, inline: true },
+        { name: officialInfo.name, value: `**${officialCount}** 人`, inline: true },
+        { name: temporaryInfo.name, value: `**${temporaryCount}** 人`, inline: true },
+        { name: specialInfo.name, value: `**${specialCount}** 人`, inline: true },
+        { name: prisonerInfo.name, value: `**${prisonerCount}** 人`, inline: true }
+      )
+      .setTimestamp();
+  }
+
+  /**
    * 執行公務員加減分/記點處分 (Demerit 核心邏輯)
    */
   public async demerit(
