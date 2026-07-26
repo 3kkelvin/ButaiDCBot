@@ -3,7 +3,7 @@ import { Client } from 'discord.js';
 
 export const startHealthCheckServer = (client: Client) => {
   const PORT = parseInt(process.env.HEALTH_PORT || '5000', 10);
-  const HOST = '127.0.0.1'; // 僅在本地開放，防止外網直接存取
+  const HOST = '0.0.0.0'; // 監聽 0.0.0.0 以接收 Docker 容器轉發的連線
 
   const server = http.createServer((req, res) => {
     // 僅允許 GET /health
