@@ -22,6 +22,9 @@ pipeline {
                 script {
                     // 若為 main 分支，針對 AWS EC2 的 ARM64 架構進行打包
                     if (BRANCH_NAME == 'main') {
+                        echo "🔧 啟用 QEMU 跨架構模擬器..."
+                        sh "docker run --rm --privileged multiarch/qemu-user-static --reset -p yes || true"
+
                         echo "🔨 針對 AWS EC2 (linux/arm64) 架構進行 Docker Build..."
                         sh "docker build --platform linux/arm64 -t ${IMAGE_NAME} ."
                     } else {
