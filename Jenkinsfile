@@ -19,7 +19,15 @@ pipeline {
 
         stage('2. 打包 Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME} ."
+                script {
+                    // 若為 main 分支，針對 AWS EC2 的 ARM64 架構進行打包
+                    if (BRANCH_NAME == 'main') {
+                        echo "🔨 針對 AWS EC2 (linux/arm64) 架構進行 Docker Build..."
+                        sh "docker build --platform linux/arm64 -t ${IMAGE_NAME} ."
+                    } else {
+                        sh "docker build -t ${IMAGE_NAME} ."
+                    }
+                }
             }
         }
 
@@ -116,7 +124,6 @@ pipeline {
                         sh "rm -f .env.${BRANCH_NAME}"
 
                         echo "🚚 正在傳送打包檔與環境變數至 EC2..."
-                        // 分兩行分別獨立 SCP 傳送，避免多檔案目的地混淆問題
                         sh "scp -i \$SSH_PEM_KEY -o StrictHostKeyChecking=no bot_main.tar \$SSH_USER@\$EC2_IP:~/bot_main.tar"
                         sh "scp -i \$SSH_PEM_KEY -o StrictHostKeyChecking=no \$SECRET_ENV_FILE \$SSH_USER@\$EC2_IP:~/.env.main"
 
@@ -145,7 +152,7 @@ pipeline {
             steps {
                 script {
                     withCredentials([string(credentialsId: env.EC2_IP_CRED_ID, variable: 'EC2_IP')]) {
-                        echo "🔍 開始對 EC2 進行健康檢查..."
+                        echo "🔍 開始對 EC2 (http://${EC2_IP}:${env.TARGET_PORT}/health) 進行健康檢查..."
                         sh """
                         MAX_RETRIES=20
                         SLEEP_TIME=3
