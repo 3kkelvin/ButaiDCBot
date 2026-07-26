@@ -23,7 +23,7 @@ export const roleCommand: ICommand = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName('demerit')
-        .setDescription('管理員加扣分')
+        .setDescription('管理加扣分')
         .addUserOption((option) =>
           option.setName('user').setDescription('被加扣分的對象').setRequired(true)
         )
@@ -72,6 +72,14 @@ export const roleCommand: ICommand = {
     ),
 
   annotations: ['身份組管理'],
+  subcommandsMetadata: {
+    identity_check: { annotations: ['身分組檢查', '(僅技術公務員)'] },
+    view_position: { annotations: ['公職列表'] },
+    demerit: { annotations: ['管理加扣分', '(僅管理員權限)'] },
+    social_credit: { annotations: ['查濫權紀錄'] },
+    reset_social_credit: { annotations: ['重置紀錄', '(僅服主)'] },
+    total: { annotations: ['基本資訊'] },
+  },
 
   async execute(interaction: ChatInputCommandInteraction) {
     const subcommand = interaction.options.getSubcommand();

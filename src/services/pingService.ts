@@ -12,6 +12,15 @@ import { RedisKeys } from '../utils/redisKeys';
  */
 export class PingService {
   /**
+   * 獲取 Websocket 延遲狀態訊息
+   * @param wsPing client websocket 延遲值
+   */
+  getPingStatusMessage(wsPing: number): string {
+    const latency = wsPing < 0 ? 0 : wsPing;
+    return `機器人狀態正常 延遲${latency}ms`;
+  }
+
+  /**
    * 獲取 Websocket 延遲 Embed UI
    * @param wsPing client websocket 延遲值
    */

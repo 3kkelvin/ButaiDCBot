@@ -38,7 +38,7 @@ export class HelpService {
           const subDesc = sub.description;
           const subMeta = cmd.subcommandsMetadata?.[subName];
           const subAnnotations = subMeta?.annotations && subMeta.annotations.length > 0
-            ? `  (${subMeta.annotations.map(a => `\`${a}\``).join(' ')})`
+            ? `  ${subMeta.annotations.map(a => `\`${a}\``).join(' ')}`
             : '';
 
           embed.addFields({
