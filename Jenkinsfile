@@ -115,22 +115,22 @@ pipeline {
                         if (env.TARGET_PORT == "") { env.TARGET_PORT = "5000" }
                         sh "rm -f .env.${BRANCH_NAME}"
 
-                        echo "🚚 正在傳送打包檔與環境變數至 EC2 (${EC2_IP})..."
-                        sh "scp -i \$SSH_PEM_KEY -o StrictHostKeyChecking=no bot_main.tar \$SECRET_ENV_FILE \$SSH_USER@\$EC2_IP:~/"
+                        echo "🚚 正在傳送打包檔與環境變數至 EC2..."
+                        // 直接將憑證檔重命名複製為 EC2 上固定的 ~/.env.main 檔案
+                        sh "scp -i \$SSH_PEM_KEY -o StrictHostKeyChecking=no bot_main.tar \$SECRET_ENV_FILE \$SSH_USER@\$EC2_IP:~/.env.main"
 
                         echo "🔧 遠端觸發 EC2 載入與運行..."
                         sh """
                         ssh -i \$SSH_PEM_KEY -o StrictHostKeyChecking=no \$SSH_USER@\$EC2_IP '
                             docker load -i ~/bot_main.tar
-                            ENV_FILE=\$(basename \$SECRET_ENV_FILE)
                             docker rm -f ${CONTAINER_NAME} || true
                             docker run -d \
                                 --name ${CONTAINER_NAME} \
-                                --env-file ~/\$ENV_FILE \
+                                --env-file ~/.env.main \
                                 --network="host" \
                                 --restart unless-stopped \
                                 ${IMAGE_NAME}
-                            rm -f ~/bot_main.tar ~/\$ENV_FILE
+                            rm -f ~/bot_main.tar ~/.env.main
                             docker image prune -f || true
                         '
                         """
@@ -144,13 +144,13 @@ pipeline {
             steps {
                 script {
                     withCredentials([string(credentialsId: env.EC2_IP_CRED_ID, variable: 'EC2_IP')]) {
-                        echo "🔍 開始對 EC2 (http://${EC2_IP}:${env.TARGET_PORT}/health) 進行健康檢查..."
+                        echo "🔍 開始對 EC2 進行健康檢查..."
                         sh """
                         MAX_RETRIES=20
                         SLEEP_TIME=3
                         
                         for i in \$(seq 1 \$MAX_RETRIES); do
-                            STATUS_CODE=\$(curl -s -o /dev/null -w "%{http_code}" http://${EC2_IP}:${env.TARGET_PORT}/health || echo "000")
+                            STATUS_CODE=\$(curl -s -o /dev/null -w "%{http_code}" http://\$EC2_IP:${env.TARGET_PORT}/health || echo "000")
                             
                             if [ "\$STATUS_CODE" = "200" ]; then
                                 echo "✅ EC2 Discord Bot 啟動且登入 Discord 成功！收到 200 OK。"
