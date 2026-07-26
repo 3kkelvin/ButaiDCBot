@@ -116,8 +116,9 @@ pipeline {
                         sh "rm -f .env.${BRANCH_NAME}"
 
                         echo "🚚 正在傳送打包檔與環境變數至 EC2..."
-                        // 直接將憑證檔重命名複製為 EC2 上固定的 ~/.env.main 檔案
-                        sh "scp -i \$SSH_PEM_KEY -o StrictHostKeyChecking=no bot_main.tar \$SECRET_ENV_FILE \$SSH_USER@\$EC2_IP:~/.env.main"
+                        // 分兩行分別獨立 SCP 傳送，避免多檔案目的地混淆問題
+                        sh "scp -i \$SSH_PEM_KEY -o StrictHostKeyChecking=no bot_main.tar \$SSH_USER@\$EC2_IP:~/bot_main.tar"
+                        sh "scp -i \$SSH_PEM_KEY -o StrictHostKeyChecking=no \$SECRET_ENV_FILE \$SSH_USER@\$EC2_IP:~/.env.main"
 
                         echo "🔧 遠端觸發 EC2 載入與運行..."
                         sh """
