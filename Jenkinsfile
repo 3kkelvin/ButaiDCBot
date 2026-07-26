@@ -138,7 +138,7 @@ pipeline {
                             docker run -d \
                                 --name ${CONTAINER_NAME} \
                                 --env-file ~/.env.main \
-                                --network="host" \
+                                -p ${env.TARGET_PORT}:${env.TARGET_PORT} \
                                 --restart unless-stopped \
                                 ${IMAGE_NAME}
                             rm -f ~/bot_main.tar ~/.env.main
