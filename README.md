@@ -5,6 +5,7 @@
 ## 🏗️ 技術棧與設計模式
 - **核心語言**：TypeScript (嚴格模式 `strict: true`)
 - **Discord 框架**：discord.ts / discordx / discord.js
+- **快取與分散式鎖**：Redis (ioredis) — 提供 Sub-millisecond 高速快取與原子鎖 (SET NX PX)
 - **資料庫**：Supabase (PostgreSQL) — 本專案中 DB 屬於邊緣輔助角色，不儲存使用者資料
 - **架構模式**：嚴格的三層式架構 (Presentation Layer -> Service Layer -> Data Access Layer)
 
@@ -26,6 +27,10 @@
    - 全域快取與 **Promise Collapsing (請求合併)** 機制。
    - 分散式鎖 (`LockService.runWithLock`) Postgres 實作防連點設計。
    - 配置化排程任務系統。
+
+3. 🗄️ **資料庫獨立 Schema 管理與自動遷移 (database/schemas/)**
+    - 本專案採用每個 Table 獨立 `.sql` 檔案的管理方式（如 `caches.sql`、`distributed_locks.sql`），存放在 `database/schemas/` 目錄中。
+    - 整合自動建表機制（Auto-Migration）：機器人在開機啟動 Ready 的第一時間，會自動掃描該目錄，並利用原生 `pg` 連線至 `DATABASE_URL` 資料庫完成所有 Tables 與索引的偵測建表，實現開發人員「零手動、免網頁後台權限」的一鍵式初始化體驗。
 
 ---
 
@@ -149,3 +154,15 @@
        ```
     4. 部署後，Jenkins 即可利用 SSH 進入虛擬機執行健康檢查。
 
+---
+
+## 🛠️ 表現層與權限模組工具
+
+為簡化表現層 (Controller) 開發並統一回應邏輯，專案提供以下核心工具：
+
+1. 🛡️ **`PermissionGuard.requireRole(target, requiredRoles, customErrorMessage?)`**
+   - 1 行權限斷言守衛。若身分不相符，會直接拋出 `AppError(401)`。
+   - 全域 `discordEventHandler` 會自動捕獲並發送隱密訊息 (`ephemeral: true`)，不觸發系統警報。
+
+2. 📡 **`BaseResponse.send(interaction, payload, ephemeral?)`**
+   - 1 行安全回應工具。全自動辨識 `interaction` 的 `deferred` / `replied` 狀態，自動切換 `reply()` / `editReply()` / `followUp()`，避免重複回應引發 API 崩潰。
