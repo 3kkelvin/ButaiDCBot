@@ -21,4 +21,9 @@ export const devConfig = {
     special: '1527348832986202238', // 特殊人士 Role ID
     prisoner: '1527348833057771557', // 囚犯 Role ID
   },
+  threadAutoClose: {
+    enabled: true,
+    inactiveTimeoutSeconds: 86400, // 24 小時無訊息則自動歸檔 (單位: 秒)
+    excludedTagIds: ['1527348840540405854'] as string[], // 豁免標籤 ID 列表 (帶有這些 Tag 的貼文跳過不關閉)
+  },
 };
