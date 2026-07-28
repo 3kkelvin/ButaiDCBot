@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+.agents
+*.log
+
+# 忽略表現層指令控制器的 Prettier 自動排版
+src/**/*Command.ts
+src/controllers/*Command.ts
+
+# 忽略 Repository 資料存取層的 Prettier 自動排版
+src/repositories/**/*
+src/**/*Repository.ts

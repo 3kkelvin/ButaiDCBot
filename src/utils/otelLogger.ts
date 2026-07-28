@@ -1,6 +1,6 @@
 /**
  * OpenTelemetry 結構化日誌包裝服務
- * 
+ *
  * 對接 OpenTelemetry API-logs，提供 info, warn, error, debug 以及 logEvent 介面。
  * 負責將 HTTP 請求、回應、系統例外與自定義事件，序列化為強型別且符合標準的日誌格式，
  * 發送給 OTel Logs Provider。此組件不進行任何敏感資訊屏蔽，直接導出原始日誌以方便除錯。
@@ -23,7 +23,7 @@ const sendToOtel = (severityNumber: SeverityNumber, severityText: string, messag
   const activeSpan = trace.getActiveSpan();
   const spanContext = activeSpan?.spanContext();
   const store = contextStore.getStore();
-  
+
   // 建立具有固定強型別欄位的基底 Payload (不屏蔽敏感字，直接記錄原始資料)
   const payload: any = {
     trace_id: spanContext?.traceId || '',
@@ -130,7 +130,7 @@ export const otelLogger = {
   debug: (message: string, meta?: any) => {
     sendToOtel(SeverityNumber.DEBUG, 'DEBUG', message, meta);
   },
-  
+
   /**
    * 公開的事件記錄方法 (供手動呼叫)
    */

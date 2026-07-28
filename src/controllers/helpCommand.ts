@@ -19,6 +19,5 @@ export const helpCommand = {
       console.error('[HelpCommand Error] 執行 /help 時發生異常:', error);
       throw error;
     }
-  }
+  },
 };
-

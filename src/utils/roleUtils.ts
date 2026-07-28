@@ -10,7 +10,7 @@ export class RoleUtils {
   /**
    * 判斷指定的身分組名稱是否為裝飾/分隔用身分組
    * 規則：名稱同時包含 '[' 與 ']'
-   * 
+   *
    * @param roleName 身分組名稱
    */
   public static isDividerRole(roleName: string): boolean {

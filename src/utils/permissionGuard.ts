@@ -8,15 +8,12 @@ import { AppError } from './appError';
 export class PermissionGuard {
   /**
    * 檢查使用者是否擁有指定的任一身分組 (純布林判斷)
-   * 
+   *
    * @param target Discord 互動事件 (ChatInputCommandInteraction) 或 成員物件 (GuildMember)
    * @param requiredRoles 允許的身分組 ID 或身分組 ID 陣列
    * @returns true: 擁有至少一個對應身分組 ; false: 無任何匹配身分組
    */
-  static hasRole(
-    target: ChatInputCommandInteraction | GuildMember | any,
-    requiredRoles: string | string[]
-  ): boolean {
+  static hasRole(target: ChatInputCommandInteraction | GuildMember | any, requiredRoles: string | string[]): boolean {
     let member: GuildMember | null = null;
 
     if (target && typeof target === 'object') {
@@ -44,7 +41,7 @@ export class PermissionGuard {
   /**
    * 1 行權限斷言守衛 (無權限直接拋出 401 AppError 中斷流程)
    * 由全域 discordEventHandler 自動捕獲並發送私密警告訊息 (ephemeral: true)
-   * 
+   *
    * @param target Discord 互動事件 (ChatInputCommandInteraction) 或 成員物件 (GuildMember)
    * @param requiredRoles 允許的身分組 ID 或身分組 ID 陣列
    * @param customErrorMessage 權限不足時的警示訊息 (可選)

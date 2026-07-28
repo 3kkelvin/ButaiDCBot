@@ -7,17 +7,19 @@ import { helpCommand } from '../controllers/helpCommand';
 import { roleDividerCommand } from '../controllers/roleDividerCommand';
 import { roleCommand } from '../controllers/roleCommand';
 
-
 /**
  * 系統 Slash 指令通用介面
  */
 export interface ICommand {
-  data: Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup"> | any;
+  data: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'> | any;
   skipAuditLog?: boolean; // 允許指令自行設定是否略過 Webhook 指令審計記錄
   annotations?: string[]; // 指令層級的自訂註解
-  subcommandsMetadata?: Record<string, {
-    annotations?: string[]; // 子指令層級的自訂註解
-  }>;
+  subcommandsMetadata?: Record<
+    string,
+    {
+      annotations?: string[]; // 子指令層級的自訂註解
+    }
+  >;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
 

@@ -14,7 +14,7 @@ export class DiscordHttpClient extends HttpClient {
       timeout: 5000,
       ...config,
     });
-    
+
     this.setupDiscordInterceptors();
   }
 
@@ -27,7 +27,7 @@ export class DiscordHttpClient extends HttpClient {
       (response) => response,
       async (error) => {
         const config = error.config;
-        
+
         // 若遇到 429 Too Many Requests，自動讀取 Retry-After 退避重試
         if (error.response?.status === 429 && config && !config._retry) {
           config._retry = true;
@@ -38,7 +38,7 @@ export class DiscordHttpClient extends HttpClient {
           await new Promise((resolve) => setTimeout(resolve, delay));
           return this.axiosInstance(config); // 重新發送請求
         }
-        
+
         return Promise.reject(error);
       }
     );

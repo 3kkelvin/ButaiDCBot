@@ -1,6 +1,6 @@
 /**
  * 全專案 Redis 快取 (Cache) 與分散式鎖 (Lock) Key 集中管理中心
- * 
+ *
  * 規範：所有新的快取或分散式鎖 Key，必須在此檔進行宣告，嚴禁在業務程式碼中硬編碼字串！
  */
 export const RedisKeys = {

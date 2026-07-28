@@ -1,8 +1,4 @@
-import {
-  ChatInputCommandInteraction,
-  GuildMember,
-  SlashCommandBuilder,
-} from 'discord.js';
+import { ChatInputCommandInteraction, GuildMember, SlashCommandBuilder } from 'discord.js';
 import { roleDividerService } from '../services/roleDividerService';
 import { PermissionGuard } from '../utils/permissionGuard';
 import { config } from '../config';
