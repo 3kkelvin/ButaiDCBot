@@ -3,6 +3,7 @@ import { DiscordLogger } from './discordLogger';
 import { client } from '../bot';
 import { config } from '../config';
 import { roleService } from '../services/roleService';
+import { threadService } from '../services/threadService';
 
 /**
  * 任務配置介面
@@ -26,6 +27,13 @@ const jobs: JobConfig[] = [
         console.log(`[Scheduler] 開始對 Guild (${guild.name}) 執行每日定時身分核對...`);
         await roleService.identityCheck(guild);
       }
+    },
+  },
+  {
+    name: 'Thread Auto-Close Scan (自動關閉不活躍討論串)',
+    cron: '*/15 * * * *',
+    action: async () => {
+      await threadService.scanAndArchiveInactiveThreads(client);
     },
   },
 ];
