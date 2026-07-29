@@ -31,8 +31,10 @@ trigger: always_on
 1. **嚴禁散落手刻 Interface / Type**：
    - **禁止**在 Command, Controller, Service, Repository 等邏輯檔案中散亂定義 `interface` 或 `type`。
 2. **集中收納於 `src/models/`**：
-   - 所有 DTO, DAO, 全域介面、型別與 Enum **必須統一集中於 `src/models/`** 目錄下（例如：`src/models/role/demeritDTO.ts`、`src/models/webhook.ts`）。
-   - 按業務模組與領域建立子目錄或獨立檔案，供跨層引用。
+   - 所有 DTO, DAO, 全域介面、型別與 Enum **必須統一集中於 `src/models/`** 目錄下（例如：`src/models/role/demeritDTO.ts`）。
+   - 所有 DB Entity應該集中收集於 `src/models/db/`。
+   - 按業務模組與領域建立子目錄並建立獨立檔案，供跨層引用。
+   - 每個型別需要撰寫註解，並獨立匯出。
 
 ---
 
