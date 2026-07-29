@@ -21,17 +21,45 @@ export class HelpService {
     for (const cmd of commandsList) {
       const name = cmd.data.name;
       const mainAnnotations =
-        cmd.annotations && cmd.annotations.length > 0 ? `  (${cmd.annotations.map((a) => `\`${a}\``).join(' ')})` : '';
+        cmd.annotations && cmd.annotations.length > 0 ? `  ${cmd.annotations.map((a) => `\`${a}\``).join(' ')}` : '';
       const auditTag = cmd.skipAuditLog ? '(不紀錄Log)' : '';
 
       // 轉換為 JSON 以反射其 options 子結構
       const json = cmd.data.toJSON();
+      const options = json.options || [];
 
-      // type === 1 代表 Subcommand 子指令
-      const subcommands = json.options?.filter((opt: any) => opt.type === 1) || [];
+      // 區分三種結構：SubcommandGroup (type === 2)、Subcommand (type === 1) 與普通無子指令
+      const hasSubcommandGroup = options.some((opt: any) => opt.type === 2);
+      const hasSubcommand = options.some((opt: any) => opt.type === 1);
 
-      if (subcommands.length > 0) {
-        // 1. 有子指令：自動映射 Subcommand 等級，並比對其 metadata 註解
+      if (hasSubcommandGroup) {
+        // 1. 含有子指令群組 (SubcommandGroup, type === 2)
+        const groups = options.filter((opt: any) => opt.type === 2);
+        for (const group of groups) {
+          const groupName = group.name;
+          const groupSubs = group.options?.filter((sub: any) => sub.type === 1) || [];
+
+          for (const sub of groupSubs) {
+            const subName = sub.name;
+            const subDesc = sub.description;
+            const fullKey = `${groupName}/${subName}`;
+
+            const subMeta = cmd.subcommandsMetadata?.[fullKey] || cmd.subcommandsMetadata?.[subName];
+            const subAnnotations =
+              subMeta?.annotations && subMeta.annotations.length > 0
+                ? `  ${subMeta.annotations.map((a) => `\`${a}\``).join(' ')}`
+                : '';
+
+            embed.addFields({
+              name: `\`/${name} ${groupName} ${subName}\`  ${subAnnotations}${auditTag}`,
+              value: subDesc,
+              inline: false,
+            });
+          }
+        }
+      } else if (hasSubcommand) {
+        // 2. 只有單層子指令 (Subcommand, type === 1)
+        const subcommands = options.filter((opt: any) => opt.type === 1);
         for (const sub of subcommands) {
           const subName = sub.name;
           const subDesc = sub.description;
@@ -48,7 +76,7 @@ export class HelpService {
           });
         }
       } else {
-        // 2. 無子指令：直接列出主指令
+        // 3. 無子指令：直接列出主指令
         const description = json.description || '無描述資訊';
         embed.addFields({
           name: `\`/${name}\`  ${mainAnnotations}${auditTag}`,

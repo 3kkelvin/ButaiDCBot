@@ -4,6 +4,7 @@ import { client } from '../bot';
 import { config } from '../config';
 import { roleService } from '../services/roleService';
 import { threadService } from '../services/threadService';
+import timeoutService from '../services/timeoutService';
 
 /**
  * 任務配置介面
@@ -34,6 +35,13 @@ const jobs: JobConfig[] = [
     cron: '*/15 * * * *',
     action: async () => {
       await threadService.scanAndArchiveInactiveThreads(client);
+    },
+  },
+  {
+    name: 'Timeout Auto-Release Scan (自動還原到期受限禁言成員)',
+    cron: '* * * * *', // 每分鐘執行一次
+    action: async () => {
+      await timeoutService.scanAndReleaseExpired(client);
     },
   },
 ];

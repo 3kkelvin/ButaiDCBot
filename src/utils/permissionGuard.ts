@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import { ChatInputCommandInteraction, GuildMember, Guild } from 'discord.js';
 import { AppError } from './appError';
 
 /**
@@ -55,5 +55,45 @@ export class PermissionGuard {
     if (!isAllowed) {
       throw new AppError(customErrorMessage, 401);
     }
+  }
+
+  /**
+   * 從 Interaction 中安全解析並校驗 Guild 物件
+   * 若不在 Discord 伺服器內 (例如私訊 DM)，自動拋出 400 AppError 中斷流程
+   *
+   * @param interaction Discord 互動事件
+   * @param customErrorMessage 自訂錯誤提示 (可選)
+   * @returns Guild 物件
+   */
+  static guildGuard(
+    interaction: ChatInputCommandInteraction | any,
+    customErrorMessage: string = '❌ 此指令僅限在 Discord 伺服器內使用！'
+  ): Guild {
+    if (!interaction.guild) {
+      throw new AppError(customErrorMessage, 400);
+    }
+    return interaction.guild as Guild;
+  }
+
+  /**
+   * 從 Interaction 中安全解析並校驗目標成員 (Target GuildMember)
+   * 若找不到該成員或不在伺服器內，自動拋出 400 AppError 中斷流程
+   *
+   * @param interaction Discord 互動事件
+   * @param optionName 選項名稱 (預設 'user')
+   * @param customErrorMessage 自訂錯誤提示 (可選)
+   */
+  static async targetGuard(
+    interaction: ChatInputCommandInteraction | any,
+    optionName: string = 'user',
+    customErrorMessage: string = '❌ 找不到該成員或該成員不在伺服器中！'
+  ): Promise<GuildMember> {
+    const guild = this.guildGuard(interaction, customErrorMessage);
+    const user = interaction.options.getUser(optionName, true);
+    const member = await guild.members.fetch(user.id).catch(() => null);
+    if (!member) {
+      throw new AppError(customErrorMessage, 400);
+    }
+    return member as GuildMember;
   }
 }

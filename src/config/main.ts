@@ -8,6 +8,11 @@ export const mainConfig = {
   channels: {
     auditLog: '1166627731916734504', // 正式環境指令審計頻道 ID
     systemLog: '1299458193507881051', // 正式環境自動對話頻道 ID
+    timeoutLog: '1531297056054968350', // 正式環境禁言/監獄紀錄頻道 ID
+  },
+  timeout: {
+    defaultSingleLimitMinutes: 1440, // 單頻道禁言預設上限 (24小時)
+    defaultGlobalLimitMinutes: 10080, // 全服監獄預設上限 (7天)
   },
   roles: {
     owner: '1151402412985298954', // 正式環境服主身分組 ID
