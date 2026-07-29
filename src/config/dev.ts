@@ -8,6 +8,11 @@ export const devConfig = {
   channels: {
     auditLog: '1527348842805334091', // 測試環境指令審計頻道 ID
     systemLog: '1527348841534197844', // 測試環境自動對話頻道 ID
+    timeoutLog: '1531985028429643907', // 測試環境禁言/監獄紀錄頻道 ID
+  },
+  timeout: {
+    defaultSingleLimitMinutes: 1440, // 單頻道禁言預設上限 (24小時)
+    defaultGlobalLimitMinutes: 10080, // 全服監獄預設上限 (7天)
   },
   roles: {
     owner: '1527348833066025132', // 測試環境服主身分組 ID

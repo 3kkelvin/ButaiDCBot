@@ -21,7 +21,7 @@ export class HelpService {
     for (const cmd of commandsList) {
       const name = cmd.data.name;
       const mainAnnotations =
-        cmd.annotations && cmd.annotations.length > 0 ? `  (${cmd.annotations.map((a) => `\`${a}\``).join(' ')})` : '';
+        cmd.annotations && cmd.annotations.length > 0 ? `  ${cmd.annotations.map((a) => `\`${a}\``).join(' ')}` : '';
       const auditTag = cmd.skipAuditLog ? '(不紀錄Log)' : '';
 
       // 轉換為 JSON 以反射其 options 子結構
