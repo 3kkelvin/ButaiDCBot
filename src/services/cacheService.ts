@@ -14,10 +14,7 @@ export class CacheService {
    * @param options 快取配置
    * @param callback 原始資料獲取函式
    */
-  public async getOrSet<T>(
-    options: ICacheOptions<T>,
-    callback: () => Promise<T>
-  ): Promise<T> {
+  public async getOrSet<T>(options: ICacheOptions<T>, callback: () => Promise<T>): Promise<T> {
     const { key, category, ttl } = options;
 
     // 1. 嘗試從資料庫讀取快取

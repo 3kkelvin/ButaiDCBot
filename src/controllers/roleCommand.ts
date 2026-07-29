@@ -83,30 +83,27 @@ export const roleCommand: ICommand = {
 
   async execute(interaction: ChatInputCommandInteraction) {
     const subcommand = interaction.options.getSubcommand();
-    // 伺服器環境檢查
-    if (!interaction.guild) {
-      throw new AppError('此指令僅限在 Discord 伺服器內使用！', 400);
-    }
+    const guild = PermissionGuard.guildGuard(interaction);
 
     switch (subcommand) {
       case 'identity_check': {
         await interaction.deferReply({ ephemeral: true });
         // 權限檢查：僅限技術公務員身分組執行
         PermissionGuard.requireRole(interaction, config.roles.tech, '您沒有技術公務員權限，無法執行此身分組管理指令！');
-        const embed = await roleService.getIdentityCheckEmbed(interaction.guild);
+        const embed = await roleService.getIdentityCheckEmbed(guild);
         await BaseResponse.send(interaction, embed);
         break;
       }
       case 'view_position': {
         await interaction.deferReply({ ephemeral: false });
-        const embed = await roleService.getPositionListEmbed(interaction.guild);
+        const embed = await roleService.getPositionListEmbed(guild);
         await BaseResponse.send(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
         break;
       }
       case 'demerit': {
         await interaction.deferReply({ ephemeral: false });
         const embed = await roleService.getDemeritEmbed(
-          interaction.guild,
+          guild,
           interaction.user.id,
           interaction.options.getUser('user', true).id,
           interaction.options.getString('action', true) as 'add' | 'deduct',
@@ -120,7 +117,7 @@ export const roleCommand: ICommand = {
       case 'social_credit': {
         await interaction.deferReply({ ephemeral: false });
         const embed = await roleService.getSocialCreditEmbed(
-          interaction.guild,
+          guild,
           interaction.options.getUser('user', true).id
         );
         await BaseResponse.send(interaction, embed);
@@ -130,7 +127,7 @@ export const roleCommand: ICommand = {
         await interaction.deferReply({ ephemeral: true });
         PermissionGuard.requireRole(interaction, config.roles.owner, '您沒有服主權限，無法執行此指令！');
         const message = await roleService.resetSocialCredit(
-          interaction.guild,
+          guild,
           interaction.user.id,
           interaction.options.getString('sure', true)
         );
@@ -139,7 +136,7 @@ export const roleCommand: ICommand = {
       }
       case 'total': {
         await interaction.deferReply({ ephemeral: false });
-        const embed = await roleService.getTotalEmbed(interaction.guild);
+        const embed = await roleService.getTotalEmbed(guild);
         await BaseResponse.send(interaction, { embeds: [embed], allowedMentions: { parse: [] } });
         break;
       }

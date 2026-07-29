@@ -1,6 +1,6 @@
 /**
  * 全專案 Redis 快取 (Cache) 與分散式鎖 (Lock) Key 集中管理中心
- * 
+ *
  * 規範：所有新的快取或分散式鎖 Key，必須在此檔進行宣告，嚴禁在業務程式碼中硬編碼字串！
  */
 export const RedisKeys = {
@@ -15,6 +15,16 @@ export const RedisKeys = {
     roleDividerFix: (guildId: string) => `role_divider_fix:${guildId}`,
     /** 身分層級核對檢查鎖 */
     identityCheck: (guildId: string) => `identity_check:${guildId}`,
+    /** /timeout 禁言操作鎖 (單頻道) */
+    timeoutJail: (guildId: string, channelId: string, userId: string) => `timeout:jail:${guildId}:${channelId}:${userId}`,
+    /** /timeout 解禁操作鎖 (單頻道) */
+    timeoutRelease: (guildId: string, channelId: string, userId: string) => `timeout:release:${guildId}:${channelId}:${userId}`,
+    /** /timeout 全服監獄關押鎖 */
+    timeoutGlobalJail: (guildId: string, userId: string) => `timeout:global_jail:${guildId}:${userId}`,
+    /** /timeout 全服監獄釋放鎖 */
+    timeoutGlobalRelease: (guildId: string, userId: string) => `timeout:global_release:${guildId}:${userId}`,
+    /** /timeout 背景自動掃描鎖 */
+    timeoutScan: () => 'timeout:scan',
   },
 
   /**

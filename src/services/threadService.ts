@@ -42,9 +42,7 @@ export class ThreadService {
       try {
         // 2. 標籤豁免保護檢查 (Excluded Tags Check)
         if (autoCloseConfig.excludedTagIds.length > 0 && thread.appliedTags) {
-          const hasExcludedTag = thread.appliedTags.some((tagId: string) =>
-            autoCloseConfig.excludedTagIds.includes(tagId)
-          );
+          const hasExcludedTag = thread.appliedTags.some((tagId: string) => autoCloseConfig.excludedTagIds.includes(tagId));
 
           if (hasExcludedTag) {
             console.log(`[ThreadService] 🛡️ 討論串 #${thread.name} (${thread.id}) 包含豁免標籤，跳過歸檔`);

@@ -1,6 +1,6 @@
 /**
  * OpenTelemetry 遙測 SDK 初始化模組
- * 
+ *
  * 此模組必須在應用程式的第一行載入。
  * 負責配置與載入 NodeSDK、對 http / external API 請求進行自動插樁 (Auto-Instrumentation)，
  * 並將追蹤 (Traces) 與日誌 (Logs) 連線導出至 Axiom 遙測分析平台，同時排除發往 Discord 警報的 Trace 以防遞迴。
@@ -93,7 +93,7 @@ export const sdk = new NodeSDK({
               }
             }
           }
-        }
+        },
       },
       // 關閉 DNS 自動插樁，防範其重寫原生 dns 方法從而破壞 dns.setDefaultResultOrder('ipv4first')
       '@opentelemetry/instrumentation-dns': {
@@ -121,7 +121,8 @@ try {
 
 // 優雅關閉
 process.on('SIGTERM', () => {
-  sdk.shutdown()
+  sdk
+    .shutdown()
     .then(() => console.log('⚡ OpenTelemetry SDK terminated.'))
     .catch((error) => console.error('❌ Error terminating OpenTelemetry SDK:', error))
     .finally(() => process.exit(0));

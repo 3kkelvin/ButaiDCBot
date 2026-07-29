@@ -22,10 +22,7 @@ export class SocialCreditRepository extends BaseRepository<ISocialCreditLog> {
   /**
    * 取得指定成員在該伺服器的所有有效加減分日誌 (依建立時間降冪排序，排除軟刪除)
    */
-  public async getLogsByUser(
-    guildId: string,
-    targetUserId: string
-  ): Promise<ISocialCreditLog[]> {
+  public async getLogsByUser(guildId: string, targetUserId: string): Promise<ISocialCreditLog[]> {
     const { data, error } = await supabase
       .from(this.tableName)
       .select('*')

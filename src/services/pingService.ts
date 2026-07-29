@@ -71,19 +71,14 @@ export class PingService {
 
     try {
       // 1. 寫入一筆測試資料至 Redis 快取
-      await cacheRepository.set(
-        testKey, 
-        'PING_TEST', 
-        { ping: 'pong', verifiedAt: new Date().toISOString() }, 
-        30
-      );
-      
+      await cacheRepository.set(testKey, 'PING_TEST', { ping: 'pong', verifiedAt: new Date().toISOString() }, 30);
+
       // 2. 隨即讀取出來，驗證讀寫完整性
       const retrieved = await cacheRepository.get(testKey);
-      
+
       // 3. 刪除該測試資料
       await cacheRepository.deleteByKeys(testKey);
-      
+
       if (retrieved && retrieved.data?.ping === 'pong') {
         description = `✅ Redis 連線與讀寫測試成功！已成功寫入 Redis 快取並讀回驗證。\n\nRedis 回傳值：\`${JSON.stringify(retrieved.data)}\``;
       } else {
@@ -107,7 +102,7 @@ export class PingService {
    */
   async getLockEmbed(): Promise<EmbedBuilder> {
     const lockKey = RedisKeys.Lock.pingTest();
-    
+
     // 呼叫 Redis 分散式鎖服務，加鎖 5 秒
     const description = await lockService.runWithLock({ lockKey, ttlMs: 10000 }, async () => {
       // 模擬執行 5 秒的非同步業務邏輯
@@ -129,7 +124,7 @@ export class PingService {
   async getCacheEmbed(): Promise<EmbedBuilder> {
     const cacheKey = RedisKeys.Cache.pingServiceVerify();
     const cacheCategory = 'CACHE_VERIFY';
-    
+
     let isCallbackExecuted = false;
 
     // 透過 cacheService.getOrSet 獲取 (快取 15 秒)
@@ -151,8 +146,8 @@ export class PingService {
     );
 
     const title = isCallbackExecuted ? '⚡ Redis 快取遺失 (Cache Miss)' : '⚡ Redis 快取命中 (Cache Hit)';
-    const message = isCallbackExecuted 
-      ? '✅ 快取遺失，已執行 Callback 進行運算並寫入 Redis 快取！(等候 2 秒)' 
+    const message = isCallbackExecuted
+      ? '✅ 快取遺失，已執行 Callback 進行運算並寫入 Redis 快取！(等候 2 秒)'
       : '🚀 Redis 快取命中！直接自記憶體快取返回！(Sub-millisecond 回應)';
 
     return new EmbedBuilder()

@@ -9,11 +9,10 @@ import { IRoleDividerDTO, IFixAllMembersDTO } from '../models/roleDivider/roleDi
  * 身份組分隔線管理服務 (BLL)
  */
 export class RoleDividerService {
-
   /**
    * 檢查並修復單一成員的身分組分隔線狀態
    * 採用記憶體計算 + member.roles.set() 單次 API 批次覆寫
-   * 
+   *
    * @param member Discord 伺服器成員
    * @returns 異動的身分組名稱紀錄
    */
@@ -28,9 +27,7 @@ export class RoleDividerService {
     }
 
     // 取得該伺服器所有身分組，並依據 position 升冪排序 (最底層在最前面)
-    const sortedRoles = Array.from(member.guild.roles.cache.values()).sort(
-      (a, b) => a.position - b.position
-    );
+    const sortedRoles = Array.from(member.guild.roles.cache.values()).sort((a, b) => a.position - b.position);
 
     const currentRoleIds = new Set(member.roles.cache.keys());
     const targetRoleIds = new Set<string>();
@@ -90,7 +87,7 @@ export class RoleDividerService {
   /**
    * 批次檢查並修復全伺服器成員的身分組分隔線
    * 使用 Redis 分散式鎖保護，防止管理員連點連發
-   * 
+   *
    * @param guild Discord 伺服器
    */
   public async fixAllMembers(guild: Guild): Promise<IFixAllMembersDTO> {
@@ -127,14 +124,11 @@ export class RoleDividerService {
 
   /**
    * 執行修復業務並組裝結果 Embed (給表現層 Controller 調用)
-   * 
+   *
    * @param guild 伺服器實例
    * @param targetMember 指定的目標成員（可選）
    */
-  public async getFixResultEmbed(
-    guild: Guild,
-    targetMember?: GuildMember | null
-  ): Promise<EmbedBuilder> {
+  public async getFixResultEmbed(guild: Guild, targetMember?: GuildMember | null): Promise<EmbedBuilder> {
     if (targetMember) {
       // 單一成員修復
       const result = await this.fixMemberRoles(targetMember);

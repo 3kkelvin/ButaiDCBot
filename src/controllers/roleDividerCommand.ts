@@ -1,8 +1,4 @@
-import {
-  ChatInputCommandInteraction,
-  GuildMember,
-  SlashCommandBuilder,
-} from 'discord.js';
+import { ChatInputCommandInteraction, GuildMember, SlashCommandBuilder } from 'discord.js';
 import { roleDividerService } from '../services/roleDividerService';
 import { PermissionGuard } from '../utils/permissionGuard';
 import { config } from '../config';
@@ -21,25 +17,22 @@ export const roleDividerCommand: ICommand = {
         .setRequired(false)
     ),
 
-  annotations: ['身份組分割', '僅技術公務員'],
+  annotations: ['身份組分割', '(僅技術公務員)'],
 
   async execute(interaction: ChatInputCommandInteraction) {
-    // 1. 伺服器環境檢查 
-    if (!interaction.guild) {
-      throw new AppError('此指令僅限在 Discord 伺服器內使用！', 400);
-    }
+    const guild = PermissionGuard.guildGuard(interaction);
 
-    // 2. 權限檢查：僅限技術公務員身分組執行
+    // 權限檢查：僅限技術公務員身分組執行
     PermissionGuard.requireRole(interaction, config.roles.tech, '您沒有技術公務員權限，無法執行身分組分隔線修復指令！');
 
-    // 3. 耗時操作先進行 Defer Reply
+    // 耗時操作先進行 Defer Reply
     await interaction.deferReply({ ephemeral: false });
 
-    // 4. 委派至 BLL 處理業務與生成 Embed
+    // 委派至 BLL 處理業務與生成 Embed
     const targetMember = interaction.options.getMember('member') as GuildMember | null;
-    const embed = await roleDividerService.getFixResultEmbed(interaction.guild, targetMember);
+    const embed = await roleDividerService.getFixResultEmbed(guild, targetMember);
 
-    // 5. 表現層安全回應
+    // 表現層安全回應
     await BaseResponse.send(interaction, embed);
   },
 };
