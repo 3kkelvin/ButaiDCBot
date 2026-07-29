@@ -28,17 +28,7 @@ export class DiscordLogger {
     }
 
     try {
-      const {
-        message,
-        errorName,
-        stack,
-        commandName,
-        userId,
-        guildId,
-        timestamp,
-        environment,
-        traceId,
-      } = params;
+      const { message, errorName, stack, commandName, userId, guildId, timestamp, environment, traceId } = params;
 
       const fields: any[] = [
         { name: 'Message', value: `\`\`\`${message || 'No message'}\`\`\``, inline: false },
@@ -61,7 +51,7 @@ export class DiscordLogger {
         color: 15158332, // 紅色
         fields,
         timestamp: new Date().toISOString(),
-        footer: { text: 'ButaiDCBot 報警監控' }
+        footer: { text: 'ButaiDCBot 報警監控' },
       };
 
       // 錯誤堆疊限制長度，避免超過 Discord 2000 字元限制
@@ -102,16 +92,7 @@ export class DiscordLogger {
     }
 
     try {
-      const {
-        message,
-        title,
-        commandName,
-        userId,
-        guildId,
-        timestamp,
-        environment,
-        extraFields,
-      } = params;
+      const { message, title, commandName, userId, guildId, timestamp, environment, extraFields } = params;
 
       const fields: any[] = [
         { name: 'Detail', value: message || 'N/A', inline: false },
@@ -138,7 +119,7 @@ export class DiscordLogger {
         color: 3447003, // 藍色 (#3498db)
         fields,
         timestamp: new Date().toISOString(),
-        footer: { text: 'ButaiDCBot 審計監控' }
+        footer: { text: 'ButaiDCBot 審計監控' },
       };
 
       await this.httpClient.post(this.infoWebhookUrl, {

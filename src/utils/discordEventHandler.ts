@@ -66,14 +66,11 @@ function extractOptionsData(optionsData: any[]): Record<string, any> {
 /**
  * Discord 事件高階異步包裝函數 (比照舊專案的 asyncHandler)
  * 負責自動捕獲事件執行中的所有未預期異常，進行全域 Webhook 報警，並對用戶端進行 Fail-Safe 錯誤反饋。
- * 
+ *
  * @param eventHandlerName 事件處理器名稱 (用於警報分類，例如 'InteractionCreate' 或 'MessageCreate')
  * @param fn 異步事件處理常式
  */
-export function discordEventHandler<T extends any[]>(
-  eventHandlerName: string,
-  fn: (...args: T) => Promise<void> | void
-) {
+export function discordEventHandler<T extends any[]>(eventHandlerName: string, fn: (...args: T) => Promise<void> | void) {
   return async (...args: T): Promise<void> => {
     const isInteraction = eventHandlerName === 'InteractionCreate';
 
@@ -94,7 +91,7 @@ export function discordEventHandler<T extends any[]>(
             ...(details.subcommand && { subcommand: details.subcommand }),
             fullCommandName: details.fullCommandName,
             ...(details.options && { commandOptions: details.options }),
-          }
+          },
         });
 
         await context.with(trace.setSpan(context.active(), span), async () => {
@@ -174,7 +171,7 @@ export function discordEventHandler<T extends any[]>(
       const firstArg = args[0];
       if (firstArg && typeof firstArg.reply === 'function') {
         const userMessage = isAppError ? error.message : '系統發生未知錯誤';
-        
+
         try {
           if (firstArg.replied || firstArg.deferred) {
             await firstArg.followUp({ content: userMessage, ephemeral: true });

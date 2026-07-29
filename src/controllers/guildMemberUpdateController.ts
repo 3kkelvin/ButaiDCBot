@@ -5,17 +5,12 @@ import { roleDividerService } from '../services/roleDividerService';
 /**
  * 處理 GuildMemberUpdate 事件的業務邏輯
  */
-export async function handleGuildMemberUpdate(
-  oldMember: GuildMember,
-  newMember: GuildMember
-): Promise<void> {
+export async function handleGuildMemberUpdate(oldMember: GuildMember, newMember: GuildMember): Promise<void> {
   // 檢查身分組是否有變動，若沒有異動則跳過
   const oldRoleIds = new Set(oldMember.roles.cache.keys());
   const newRoleIds = new Set(newMember.roles.cache.keys());
 
-  const hasRoleChange =
-    oldRoleIds.size !== newRoleIds.size ||
-    Array.from(oldRoleIds).some((id) => !newRoleIds.has(id));
+  const hasRoleChange = oldRoleIds.size !== newRoleIds.size || Array.from(oldRoleIds).some((id) => !newRoleIds.has(id));
 
   if (!hasRoleChange) {
     return;

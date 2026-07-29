@@ -18,20 +18,19 @@ import { IDemeritDTO } from '../models/role/demeritDTO';
 const ROLE_PRIORITY_KEYS = ['voter', 'official', 'temporary', 'special', 'prisoner'] as const;
 
 /**
-   * 公務員社群信用初始基礎分數
-   */
+ * 公務員社群信用初始基礎分數
+ */
 const INITIAL_SOCIAL_CREDIT_SCORE = 6;
 
 /**
  * 核心身分組管理業務服務 (BLL)
  */
 export class RoleService {
-  
   /**
    * 執行全伺服器身分核對檢查
    * 1. 完全無 5 大身分者，自動給予「臨時成員」
    * 2. 同時擁有複數 5 大身分者，依照權重僅保留最高位階者
-   * 
+   *
    * @param guild Discord 伺服器實例
    */
   public async identityCheck(guild: Guild): Promise<IIdentityCheckDTO> {
@@ -55,7 +54,7 @@ export class RoleService {
 
         // 有效的身分組 ID 映射與反向 ID->Key 字典
         const validRoleIdsSet = new Set<string>();
-        const idToKeyMap = new Map<string, typeof ROLE_PRIORITY_KEYS[number]>();
+        const idToKeyMap = new Map<string, (typeof ROLE_PRIORITY_KEYS)[number]>();
 
         for (const key of ROLE_PRIORITY_KEYS) {
           const roleId = configuredRoles[key];
@@ -81,7 +80,7 @@ export class RoleService {
           const targetRoleIds = new Set(currentRoleIds);
 
           // 找出該成員目前擁有的 5 大身分組 key 列表
-          const ownedRoleKeys: { key: typeof ROLE_PRIORITY_KEYS[number]; id: string }[] = [];
+          const ownedRoleKeys: { key: (typeof ROLE_PRIORITY_KEYS)[number]; id: string }[] = [];
           for (const roleId of currentRoleIds) {
             const key = idToKeyMap.get(roleId);
             if (key) {
@@ -143,7 +142,7 @@ export class RoleService {
 
   /**
    * 執行身分核對並組裝結果 Embed (給表現層 Controller 使用)
-   * 
+   *
    * @param guild Discord 伺服器實例
    */
   public async getIdentityCheckEmbed(guild: Guild): Promise<EmbedBuilder> {
@@ -200,14 +199,14 @@ export class RoleService {
 
   /**
    * 取得伺服器公職與管理人員列表 Embed (含公務員計點分數顯示)
-   * 
+   *
    * 排序順序：
    * 1. 服主
    * 2. 大管理
    * 3. 技術公務員
    * 4. 管理身分組（位在 adminTag 下方，直到第一個裝飾身分組）
    * 5. 公務身分組（位在 civilTag 下方，直到第一個裝飾身分組）
-   * 
+   *
    * @param guild Discord 伺服器實例
    */
   public async getPositionListEmbed(guild: Guild): Promise<EmbedBuilder> {
@@ -215,9 +214,7 @@ export class RoleService {
     const allMembers = Array.from(membersCollection.values()).filter((m) => !m.user.bot);
 
     // 取得所有身分組，並依據 position 降冪排序 (最高位階在最前面)
-    const sortedRoles = Array.from(guild.roles.cache.values()).sort(
-      (a, b) => b.position - a.position
-    );
+    const sortedRoles = Array.from(guild.roles.cache.values()).sort((a, b) => b.position - a.position);
 
     // 取得指定固定身分組 ID
     const ownerRoleId = config.roles.owner;
@@ -290,9 +287,7 @@ export class RoleService {
       if (members.length === 1) {
         const m = members[0];
         const hasAdminTag = PermissionGuard.hasRole(m, adminTagRoleId);
-        const scoreStr = hasAdminTag
-          ? ` (${scoreMap.get(m.id) ?? INITIAL_SOCIAL_CREDIT_SCORE}分)`
-          : '';
+        const scoreStr = hasAdminTag ? ` (${scoreMap.get(m.id) ?? INITIAL_SOCIAL_CREDIT_SCORE}分)` : '';
         return [`<@&${role.id}>：<@${m.id}>${scoreStr}`];
       }
 
@@ -300,9 +295,7 @@ export class RoleService {
       const roleLines: string[] = [`<@&${role.id}>：`];
       members.forEach((m, idx) => {
         const hasAdminTag = PermissionGuard.hasRole(m, adminTagRoleId);
-        const scoreStr = hasAdminTag
-          ? ` (${scoreMap.get(m.id) ?? INITIAL_SOCIAL_CREDIT_SCORE}分)`
-          : '';
+        const scoreStr = hasAdminTag ? ` (${scoreMap.get(m.id) ?? INITIAL_SOCIAL_CREDIT_SCORE}分)` : '';
         const prefix = idx === members.length - 1 ? '└' : '├';
         roleLines.push(`${prefix} <@${m.id}>${scoreStr}`);
       });
@@ -341,7 +334,7 @@ export class RoleService {
     const descriptionText = lines.length > 0 ? lines.join('\n') : '尚未設定或找不到任何公職身分組資料。';
 
     return new EmbedBuilder()
-      .setTitle('伺服器公職人員列表')
+      .setTitle('伺服器公職人員列表') //
       .setColor(0x00aeef)
       .setDescription(descriptionText)
       .setTimestamp();
@@ -397,9 +390,17 @@ export class RoleService {
       .setColor(0x9b59b6)
       .addFields(
         { name: '服主', value: `<@${guild.ownerId}>`, inline: true },
-        { name: '伺服器創建日期', value: `<t:${createdUnix}:F> (已成立 ${ageInDays} 天)`, inline: false },
+        {
+          name: '伺服器創建日期',
+          value: `<t:${createdUnix}:F> (已成立 ${ageInDays} 天)`,
+          inline: false,
+        },
         { name: '身分組總數', value: `${guild.roles.cache.size} 個`, inline: true },
-        { name: '成員總人數', value: `${humanMembers.length} 人 (全服含機器人: ${allMembers.length} 人)`, inline: true },  
+        {
+          name: '成員總人數',
+          value: `${humanMembers.length} 人 (全服含機器人: ${allMembers.length} 人)`,
+          inline: true,
+        },
         { name: voterInfo.name, value: `**${voterCount}** 人`, inline: true },
         { name: officialInfo.name, value: `**${officialCount}** 人`, inline: true },
         { name: temporaryInfo.name, value: `**${temporaryCount}** 人`, inline: true },
@@ -452,7 +453,6 @@ export class RoleService {
       if (targetMaxPos >= executorMaxPos) {
         throw new AppError('權限不足：您只能操作身分組排序比自己低的人！', 403);
       }
-      
     }
 
     // 5. 寫入 DB Log
@@ -537,10 +537,7 @@ export class RoleService {
   /**
    * 取得個人社群信用 (Social Credit) 點數與紀錄 Embed
    */
-  public async getSocialCreditEmbed(
-    guild: Guild,
-    targetUserId: string
-  ): Promise<EmbedBuilder> {
+  public async getSocialCreditEmbed(guild: Guild, targetUserId: string): Promise<EmbedBuilder> {
     const target = await guild.members.fetch(targetUserId);
     const logs = await socialCreditRepository.getLogsByUser(guild.id, target.id);
 
@@ -550,25 +547,19 @@ export class RoleService {
       .setTimestamp();
 
     if (logs.length === 0) {
-      embed
-        .setColor(0x95a5a6)
-        .setDescription('尚無任何紀錄或不適用SocialCredit系統');
+      embed.setColor(0x95a5a6).setDescription('尚無任何紀錄或不適用SocialCredit系統');
     } else {
       const score = await this.getUserSocialCreditScore(guild.id, target.id);
-      embed
-        .setColor(score > 3 ? 0x2ecc71 : score > 0 ? 0xf1c40f : 0xe74c3c)
-        .addFields({
-          name: `當前總點數 (初始 ${INITIAL_SOCIAL_CREDIT_SCORE} 分)`,
-          value: `**${score}** 分`,
-          inline: false,
-        });
+      embed.setColor(score > 3 ? 0x2ecc71 : score > 0 ? 0xf1c40f : 0xe74c3c).addFields({
+        name: `當前總點數 (初始 ${INITIAL_SOCIAL_CREDIT_SCORE} 分)`,
+        value: `**${score}** 分`,
+        inline: false,
+      });
 
       // 顯示最近最多 10 筆紀錄
       const recentLogs = logs.slice(0, 10);
       const logLines = recentLogs.map((log, idx) => {
-        const timeStr = log.created_at
-          ? `<t:${Math.floor(new Date(log.created_at).getTime() / 1000)}:R>`
-          : '未知時間';
+        const timeStr = log.created_at ? `<t:${Math.floor(new Date(log.created_at).getTime() / 1000)}:R>` : '未知時間';
         const actionStr = log.is_add ? `加 **${log.points}** 分` : `扣 **${log.points}** 分`;
         return `${idx + 1}. ${actionStr} (${timeStr}) - 執行者: <@${log.executor_user_id}>\n   理由: ${log.reason}`;
       });
@@ -585,11 +576,7 @@ export class RoleService {
   /**
    * 重置全伺服器公務員社群信用點數紀錄
    */
-  public async resetSocialCredit(
-    guild: Guild,
-    executorUserId: string,
-    sureInput: string
-  ): Promise<string> {
+  public async resetSocialCredit(guild: Guild, executorUserId: string, sureInput: string): Promise<string> {
     const executor = await guild.members.fetch(executorUserId);
 
     // 權限檢查：僅 Owner
@@ -639,9 +626,7 @@ export class RoleService {
 
     result.push(adminTagRoleId);
 
-    const sortedRoles = Array.from(guild.roles.cache.values()).sort(
-      (a, b) => b.position - a.position
-    );
+    const sortedRoles = Array.from(guild.roles.cache.values()).sort((a, b) => b.position - a.position);
 
     const adminTagIdx = sortedRoles.findIndex((r) => r.id === adminTagRoleId);
     if (adminTagIdx !== -1) {

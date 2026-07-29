@@ -1,9 +1,9 @@
-import { 
-  ChatInputCommandInteraction, 
-  CommandInteraction, 
-  EmbedBuilder, 
-  InteractionReplyOptions, 
-  MessagePayload 
+import {
+  ChatInputCommandInteraction,
+  CommandInteraction,
+  EmbedBuilder,
+  InteractionReplyOptions,
+  MessagePayload,
 } from 'discord.js';
 
 export type ResponsePayload = string | EmbedBuilder | InteractionReplyOptions | MessagePayload;
@@ -16,7 +16,7 @@ export class BaseResponse {
   /**
    * 統一安全發送回應
    * 自動切換 interaction.reply / editReply / followUp
-   * 
+   *
    * @param interaction Discord 互動事件
    * @param payload 欲回覆的訊息字串、EmbedBuilder 或 Options 物件
    * @param ephemeral 是否設為隱密訊息 (僅在尚未 reply/defer 且傳入字串/Embed 時生效)
@@ -57,10 +57,7 @@ export class BaseResponse {
   /**
    * 快速發送隱密訊息 (ephemeral: true)
    */
-  static async sendEphemeral(
-    interaction: CommandInteraction | ChatInputCommandInteraction | any,
-    message: string
-  ): Promise<any> {
+  static async sendEphemeral(interaction: CommandInteraction | ChatInputCommandInteraction | any, message: string): Promise<any> {
     return await this.send(interaction, { content: message, ephemeral: true });
   }
 }

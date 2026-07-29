@@ -18,10 +18,7 @@ export class LockService {
    * @param callback 鎖定期間要執行的非同步業務邏輯
    * @returns 返回 callback 的結果；若未取得鎖，則拋出 429 AppError
    */
-  public async runWithLock<T>(
-    options: ILockOptions,
-    callback: () => Promise<T>
-  ): Promise<T> {
+  public async runWithLock<T>(options: ILockOptions, callback: () => Promise<T>): Promise<T> {
     const { lockKey, releaseOnSuccess = true, ttlMs = 30000 } = options;
 
     // 1. 嘗試獲取鎖 (Redis 原子寫入)

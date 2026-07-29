@@ -20,9 +20,8 @@ export class HelpService {
     // 遍歷 commandsList 自動生成指令與子指令列表 fields
     for (const cmd of commandsList) {
       const name = cmd.data.name;
-      const mainAnnotations = cmd.annotations && cmd.annotations.length > 0
-        ? `  (${cmd.annotations.map(a => `\`${a}\``).join(' ')})`
-        : '';
+      const mainAnnotations =
+        cmd.annotations && cmd.annotations.length > 0 ? `  (${cmd.annotations.map((a) => `\`${a}\``).join(' ')})` : '';
       const auditTag = cmd.skipAuditLog ? '(不紀錄Log)' : '';
 
       // 轉換為 JSON 以反射其 options 子結構
@@ -37,14 +36,15 @@ export class HelpService {
           const subName = sub.name;
           const subDesc = sub.description;
           const subMeta = cmd.subcommandsMetadata?.[subName];
-          const subAnnotations = subMeta?.annotations && subMeta.annotations.length > 0
-            ? `  ${subMeta.annotations.map(a => `\`${a}\``).join(' ')}`
-            : '';
+          const subAnnotations =
+            subMeta?.annotations && subMeta.annotations.length > 0
+              ? `  ${subMeta.annotations.map((a) => `\`${a}\``).join(' ')}`
+              : '';
 
           embed.addFields({
             name: `\`/${name} ${subName}\`  ${subAnnotations}${auditTag}`,
             value: subDesc,
-            inline: false
+            inline: false,
           });
         }
       } else {
@@ -53,7 +53,7 @@ export class HelpService {
         embed.addFields({
           name: `\`/${name}\`  ${mainAnnotations}${auditTag}`,
           value: description,
-          inline: false
+          inline: false,
         });
       }
     }

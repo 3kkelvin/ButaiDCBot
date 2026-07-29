@@ -16,8 +16,8 @@ export async function handleMessage(message: Message): Promise<void> {
 
   // 2. 範例：關鍵字 (髒話/敏感詞) 屏蔽與提醒
   const sensitiveKeywords = ['幹', '機車', 'joyce'];
-  const hasSensitiveWord = sensitiveKeywords.some(keyword => content.includes(keyword));
-  
+  const hasSensitiveWord = sensitiveKeywords.some((keyword) => content.includes(keyword));
+
   if (hasSensitiveWord) {
     return;
   }
@@ -25,6 +25,7 @@ export async function handleMessage(message: Message): Promise<void> {
   // 3. 範例：URL 連結安全警告與處理
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   if (urlRegex.test(content)) {
+    // 預留：未來的 URL 連結安全警告與處理邏輯
   }
 }
 

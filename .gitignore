@@ -143,6 +143,7 @@ ai_db_test/*
 
 # Antigravity Skills & Instructions
 .agents/*
+!.agents/rules/
 !.agents/skills/
 !.agents/skills/axiom_debug/
 .agents/skills/*
