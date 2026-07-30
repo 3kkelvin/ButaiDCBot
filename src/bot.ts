@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { commandsMap } from './utils/commands';
 import { handleBotInit } from './utils/botInit';
 import { setupInteractionController } from './controllers/interactionController';
+import { setupButtonController } from './controllers/buttonController';
 import { setupMessageController } from './controllers/messageController';
 import { setupGuildMemberUpdateController } from './controllers/guildMemberUpdateController';
 import dns from 'dns';
@@ -30,11 +31,12 @@ export const client = new Client({
   ],
 });
 
-// 1. 當 Ready 時，執行一次性初始化與指令同步註冊
+// 1. 當 Ready 時，執行一次性初始化與指令同步註冊 (實際觸發時機會在3. 登入 Discord 之後)
 client.once(Events.ClientReady, (readyClient) => handleBotInit(readyClient, commandsMap));
 
 // 2. 註冊常駐事件監聽器控制器
 setupInteractionController(client);
+setupButtonController(client);
 setupMessageController(client);
 setupGuildMemberUpdateController(client);
 

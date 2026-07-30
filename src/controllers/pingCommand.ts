@@ -10,7 +10,7 @@ import { BaseResponse } from '../utils/baseResponse';
 export const pingCommand = {
   data: new SlashCommandBuilder()
     .setName('ping')
-    .setDescription('狀態檢查'),
+    .setDescription('檢查機器人是否活著'),
 
   annotations: ['狀態檢查'],
 

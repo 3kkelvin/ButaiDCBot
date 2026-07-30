@@ -2,6 +2,7 @@ import { Client, REST, Routes } from 'discord.js';
 import { initializeDatabase } from './dbInit';
 import { startHealthCheckServer } from './healthCheckServer';
 import { initSchedulers } from './scheduler';
+import { helpService } from '../services/helpService';
 
 /**
  * 同步 Slash Commands 指令至 Discord API
@@ -20,6 +21,15 @@ export async function syncSlashCommands(readyClient: Client, commands: Map<strin
 
   try {
     const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+    // 在將指令部署至 Discord 前，才挑出 help 指令，動態生成它的選項
+    // 因為此時已經有準備好的 commands(產生自/utils/commands)
+    // 此時注入 commands 到 help 中不會造成循環依賴風險
+    const helpCommand = commands.get('help');
+    if (helpCommand) {
+      helpService.injectCategoryChoices(helpCommand);
+    }
+
     const commandData = Array.from(commands.values()).map((cmd) => cmd.data.toJSON());
 
     if (GUILD_ID) {

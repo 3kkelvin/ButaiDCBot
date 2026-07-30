@@ -8,7 +8,7 @@ import { AppError } from '../utils/appError';
 
 export const roleDividerCommand: ICommand = {
   data: new SlashCommandBuilder()
-    .setName('role_divider_fix')
+    .setName('role_divider')
     .setDescription('手動修復身分組分隔線（辨識含 "[" 與 "]" 之身分組）')
     .addUserOption((option) =>
       option
