@@ -163,6 +163,8 @@ export const timeoutCommand: ICommand = {
 
     // 高延遲 DB 防護：提前發送 Defer Reply，預防 3 秒 Interaction Timeout
     await interaction.deferReply({ ephemeral: group === 'setting' });
+    const replyMsg = await interaction.fetchReply().catch(() => null);
+    const noticeMessageUrl = replyMsg?.url;
 
     // 強效檢查函式：欄位「是否已警告」必須填寫「是」
     const checkWarnedField = (): string => {
@@ -260,7 +262,8 @@ export const timeoutCommand: ICommand = {
           targetMember,
           minutes,
           warned,
-          reason
+          reason,
+          noticeMessageUrl
         );
 
         const releaseUnix = Math.floor(new Date(prisoner.release_at).getTime() / 1000);
@@ -318,7 +321,8 @@ export const timeoutCommand: ICommand = {
           minutes,
           type,
           warned,
-          reason
+          reason,
+          noticeMessageUrl
         );
 
         const releaseUnix = Math.floor(new Date(globalJail.release_at).getTime() / 1000);
