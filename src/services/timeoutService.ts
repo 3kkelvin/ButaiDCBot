@@ -3,7 +3,6 @@ import timeoutRepository from '../repositories/timeoutRepository';
 import lockService from './lockService';
 import { RedisKeys } from '../utils/redisKeys';
 import { AppError } from '../utils/appError';
-import { DiscordLogger } from '../utils/discordLogger';
 import { PermissionGuard } from '../utils/permissionGuard';
 import { DynamicTimerManager } from '../utils/dynamicTimerManager';
 import { config } from '../config';
@@ -72,7 +71,8 @@ export class TimeoutService {
     target: GuildMember,
     minutes: number,
     warned: string,
-    reason: string
+    reason: string,
+    noticeMessageUrl?: string
   ): Promise<ITimeoutPrisoner> {
     const targetChan = this.getTargetChannel(channel);
 
@@ -129,17 +129,22 @@ export class TimeoutService {
       });
 
       // 留檔記錄
+      const fields = [
+        { name: '目標成員', value: `<@${target.id}>`, inline: true },
+        { name: '執行管理者', value: `<@${executor.id}>`, inline: true },
+        { name: '頻道', value: `<#${targetChan.id}>`, inline: true },
+        { name: '禁言時長', value: `${minutes} 分鐘`, inline: true },
+        { name: '解禁時間', value: `<t:${Math.floor(releaseDate.getTime() / 1000)}:R>`, inline: true },
+        { name: '原因', value: reason, inline: false },
+      ];
+      if (noticeMessageUrl) {
+        fields.push({ name: '來源', value: `[來源訊息](${noticeMessageUrl})`, inline: false });
+      }
+
       const embed = new EmbedBuilder()
         .setTitle('【禁言紀錄】單頻道受限禁言生效')
         .setColor(0xffa500)
-        .addFields(
-          { name: '目標成員', value: `<@${target.id}>`, inline: true },
-          { name: '執行管理者', value: `<@${executor.id}>`, inline: true },
-          { name: '頻道', value: `<#${targetChan.id}>`, inline: true },
-          { name: '禁言時長', value: `${minutes} 分鐘`, inline: true },
-          { name: '解禁時間', value: `<t:${Math.floor(releaseDate.getTime() / 1000)}:R>`, inline: true },
-          { name: '原因', value: reason, inline: false }
-        )
+        .addFields(fields)
         .setTimestamp();
 
       await this.sendLogChannel(guild, embed);
@@ -239,7 +244,8 @@ export class TimeoutService {
     minutes: number,
     confinementType: 'prisoner' | 'special',
     warned: string,
-    reason: string
+    reason: string,
+    noticeMessageUrl?: string
   ): Promise<ITimeoutGlobalJail> {
     const isGlobal = await this.isGlobalAdmin(guild, executor);
     if (!isGlobal) {
@@ -306,17 +312,22 @@ export class TimeoutService {
 
       // 留檔記錄
       const typeLabel = confinementType === 'special' ? '特殊隔離' : '關押';
+      const fields = [
+        { name: '目標成員', value: `<@${target.id}>`, inline: true },
+        { name: '執行管理者', value: `<@${executor.id}>`, inline: true },
+        { name: '類型', value: typeLabel, inline: true },
+        { name: '關押時長', value: `${minutes} 分鐘`, inline: true },
+        { name: '出獄時間', value: `<t:${Math.floor(releaseDate.getTime() / 1000)}:R>`, inline: true },
+        { name: '原因', value: reason, inline: false },
+      ];
+      if (noticeMessageUrl) {
+        fields.push({ name: '來源', value: `[來源訊息](${noticeMessageUrl})`, inline: false });
+      }
+
       const embed = new EmbedBuilder()
         .setTitle(`【監獄紀錄】全服${typeLabel}生效`)
         .setColor(0xe74c3c)
-        .addFields(
-          { name: '目標成員', value: `<@${target.id}>`, inline: true },
-          { name: '執行管理者', value: `<@${executor.id}>`, inline: true },
-          { name: '類型', value: typeLabel, inline: true },
-          { name: '關押時長', value: `${minutes} 分鐘`, inline: true },
-          { name: '出獄時間', value: `<t:${Math.floor(releaseDate.getTime() / 1000)}:R>`, inline: true },
-          { name: '原因', value: reason, inline: false }
-        )
+        .addFields(fields)
         .setTimestamp();
 
       await this.sendLogChannel(guild, embed);
