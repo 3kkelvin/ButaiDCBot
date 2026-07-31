@@ -166,3 +166,14 @@
 
 2. 📡 **`BaseResponse.send(interaction, payload, ephemeral?)`**
    - 1 行安全回應工具。全自動辨識 `interaction` 的 `deferred` / `replied` 狀態，自動切換 `reply()` / `editReply()` / `followUp()`，避免重複回應引發 API 崩潰。
+
+3. 📖 **`/help` 智慧幫助說明與 Choices 動態映射**
+   - 打 `/help` 可直接檢視頂層大類總覽卡片與按鈕；打 `/help category:<大類>` 可精準調閱該指令族內容。
+   - 內建 10 行限制分頁與身份驗證按鈕導航。
+
+4. 🤖 **開發者 CLI 指令預覽與配額統計工具 (`scripts/previewHelp.ts`)**
+   - 提供可在開發階段獨立運行的 CLI 檢核腳本：
+     ```bash
+     npx ts-node scripts/previewHelp.ts         # 檢視全系統大中小類統計與展平說明
+     npx ts-node scripts/previewHelp.ts role    # 檢視指定 role 指令族說明
+     ```

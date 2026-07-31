@@ -60,7 +60,7 @@ export const roleCommand: ICommand = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName('reset_social_credit')
-        .setDescription('重置管理員加扣分紀錄 (僅限服主使用)')
+        .setDescription('重置管理員加扣分紀錄')
         .addStringOption((option) =>
           option.setName('sure').setDescription('請填寫yes').setRequired(true)
         )

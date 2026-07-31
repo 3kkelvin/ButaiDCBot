@@ -9,11 +9,11 @@
 本系統嚴格遵循三層式軟體工程架構，各層職責清晰對稱，邊界明確：
 
 1. **表現層 (Presentation Layer - Controllers & Commands)**
-   * **成員**：`interactionController`、`messageController`、`pingCommand`、`helpCommand`。
-   * **職責**：事件接收自治、請求路由分發、解析 Discord 交互上下文、組裝與渲染多媒體 UI (Embeds, Buttons, Components)。
+   * **成員**：`interactionController`、`buttonController`、`messageController`、`guildMemberUpdateController`、`pingCommand`、`helpCommand`、`roleCommand`、`timeoutCommand` 等。
+   * **職責**：事件接收自治、請求路由分發、解析 Discord 互動與按鈕 (`isButton`) 上下文、組裝與渲染多媒體 UI (Embeds, Buttons, Components)。
 2. **業務邏輯層 (Business Logic Layer - Services)**
-   * **成員**：`pingService`、`cacheService`、`lockService`。
-   * **職責**：商業邏輯運算、快取生命週期 (TTL/Promise Collapsing)、分散式鎖原子互斥控制。
+   * **成員**：`pingService`、`helpService`、`roleService`、`timeoutService`、`cacheService`、`lockService`。
+   * **職責**：商業邏輯運算、幫助說明反射與 10 行分頁計算、快取生命週期 (TTL/Promise Collapsing)、分散式鎖原子互斥控制。
 3. **資料存取層 (Data Access Layer - Repositories)**
    * **成員**：`webhookRepository`、`cacheRepository` (DAL Helper)。
    * **職責**：底層持久化讀寫 (Supabase/PostgreSQL) 與外部 Discord Rest API 請求封裝。
@@ -133,3 +133,49 @@ setupInteractionController(client);
 setupMessageController(client);
 setupMemberController(client); // 💡 一鍵自治掛載
 ```
+
+---
+
+## 附錄 A：機器人完整初始化與 Help 動態選項部署生命週期 (Bot Initialization Lifecycle)
+
+本附錄詳細記錄機器人啟動時的四階段生命週期，以及零循環依賴下的 `/help` 指令 Choice 選項動態注入與部署流程：
+
+```mermaid
+flowchart TD
+    subgraph Phase1["階段一：Node.js 模組靜態載入期 (Module Import Phase)"]
+        A1[1. 啟動 bot.ts & 載入 dotenv.config] --> A2[2. 載入 commands.ts 與所有 Command 控制器]
+        A2 --> A3["3. helpCommand.ts 單純實體化 SlashCommandBuilder<br/>(💡 100% 純潔宣告，不掃描全系統，零循環依賴)"]
+    end
+
+    subgraph Phase2["階段二：Client 建立與事件掛載期 (Event Listener Setup Phase)"]
+        B1[4. 實體化 Discord Client] --> B2[5. 一鍵自治掛載 Event Controllers]
+        B2 --> B3["• setupInteractionController (處理 Slash 指令)<br/>• setupButtonController (處理按鈕 prefix 路由)<br/>• setupMessageController (處理訊息)<br/>• setupGuildMemberUpdateController (處理成員異動)"]
+    end
+
+    subgraph Phase3["階段三：Gateway 登入與 Ready 事件觸發期 (ClientReady & Command Deployment)"]
+        C1["6. client.login(TOKEN) 進行 Gateway WebSocket 連線"] --> C2["7. 觸發 Events.ClientReady 事件<br/>執行 handleBotInit()"]
+        
+        C2 --> C3["8. 進入 syncSlashCommands() 準備部署指令"]
+        
+        C3 --> C4["動態 Choices 注入<br/>呼叫 helpService.injectCategoryChoices(helpCommand)<br/>(此時 commandsList 已 100% 準備好，安全掃描大類並注入 Choices)"]
+        
+        C4 --> C5["9. 打包 command.data.toJSON() 送往 Discord REST API 部署"]
+        
+        C5 --> C6["10. initializeDatabase() 自動資料庫建表與遷移"]
+        C6 --> C7["11. 啟動健康檢查 HTTP Server (Port 5000)"]
+        C7 --> C8["12. initSchedulers() 啟動 Cron 排程任務系統"]
+    end
+
+    subgraph Phase4["階段四：線上長續航運行期 (Runtime Execution Phase)"]
+        D1["使用者在 Discord 輸入 /help"] --> D2["interactionController 接收<br/>分發給 helpCommand.execute()"]
+        D2 --> D3["helpService 生成 Embed 與按鈕<br/>回應隱密訊息 (ephemeral: true)"]
+        
+        D4["使用者點擊 [上一頁/下一頁] 或 [大類按鈕]"] --> D5["buttonController 接收 (isButton)<br/>解析 CustomId Prefix ('help')"]
+        D5 --> D6["分發給 helpService.handleButtonInteraction()<br/>驗證用戶 ID 隨後執行 interaction.update()"]
+    end
+
+    Phase1 --> Phase2
+    Phase2 --> Phase3
+    Phase3 --> Phase4
+```
+
