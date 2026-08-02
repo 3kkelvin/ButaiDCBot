@@ -2,6 +2,8 @@ import { Client, Events } from 'discord.js';
 import { discordEventHandler } from '../utils/discordEventHandler';
 import { helpService } from '../services/helpService';
 import { HELP_BUTTON_PREFIX } from '../models/help/helpDTO';
+import { vettingService } from '../services/vettingService';
+import { VETTING_BUTTON_PREFIX } from '../models/vetting/vettingDTO';
 
 /**
  * 監聽並處置 Discord 按鈕互動事件 (Events.InteractionCreate)
@@ -21,6 +23,10 @@ export const setupButtonController = (client: Client) => {
       switch (prefix) {
         case HELP_BUTTON_PREFIX:
           await helpService.handleButtonInteraction(interaction);
+          break;
+
+        case VETTING_BUTTON_PREFIX:
+          await vettingService.handleButtonInteraction(interaction);
           break;
 
         default:

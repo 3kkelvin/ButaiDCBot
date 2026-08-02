@@ -19,6 +19,8 @@
 * **資料結構隔離 (DTO/DAO)**：
   * 傳入外部 API 或資料庫的原始結構為 **DAO (Data Access Object)**。
   * 在表現層與業務層傳遞的資料結構為 **DTO (Data Transfer Object)**。
+* **禁止輸出 Emoji (No Emoji Policy)**：
+  * 全專案任何程式碼、訊息回應、Embed 卡片與日誌輸出中，**嚴禁使用 Emoji 字符**！採用標準乾淨純文字標示與輸出。
 
 ---
 

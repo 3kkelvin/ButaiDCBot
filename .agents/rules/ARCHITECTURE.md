@@ -70,6 +70,11 @@ trigger: always_on
    - 全專案所有 Redis Key 與分散式鎖 Key **必須統一於 `src/utils/redisKeys.ts` 的 `RedisKeys` 工廠集中宣告**，嚴禁字串硬編碼。
 3. **錯誤分類處置**：
    - 可預期業務異常丟出 `AppError`（用戶友好提示，不觸發報警）；未預期 Error 由 `discordEventHandler` 捕捉並發送 Webhook 警報至開發頻道。
+4. **禁止輸出 Emoji (No Emoji Policy)**：
+   - 全專案任何程式碼、訊息回應、Embed 卡片與日誌輸出中，**嚴禁使用 Emoji 字符**！採用標準乾淨純文字標示與輸出。
+5. **嚴禁無參數全量 `guild.members.fetch()` (No Full Member Fetch)**：
+   - 嚴禁不帶參數直接呼叫原生 `guild.members.fetch()` 全量拉取全服成員。
+   - 若業務確實需要全伺服器成員資料，**必須統一透由 DAL 層的 `discordRepository.getGuildMembers(guild)` 獲取**。該方法內建 30 秒記憶體快取與 Promise Collapsing 併發防擊穿防護，可防止 Gateway 卡死與 Rate Limit 觸發。
 
 ---
 
@@ -110,6 +115,8 @@ trigger: always_on
 - [ ] **Interface & Type 集中管理**：邏輯檔案中無私自手刻 Interface/Type，均集中於 `src/models/`。
 - [ ] **防重複造輪子 (Utils Check)**：檢查是否有重複實作 `src/utils/` 已存在的現成輪子（例如：`permissionGuard`, `baseResponse`, `redisKeys`, `discordEventHandler`, `appError` 等）。
 - [ ] **零硬編碼 ID 與 Redis Keys**：ID 均讀自 config，Key 均透過 `RedisKeys`。
+- [ ] **禁止輸出 Emoji 檢核**：程式碼、訊息回應與 Embed 卡片中皆無 Emoji 字符。
+- [ ] **禁止無參數全量 `guild.members.fetch()`**：絕無直接呼叫原生 `guild.members.fetch()`，全服成員查詢均統一透過 DAL `discordRepository.getGuildMembers(guild)`。
 - [ ] **非同步事件保護**：所有事件控制器均由 `discordEventHandler` 包覆。
 - [ ] **文件同步維護檢核**：若異動涉及架構、新控制器或開發規範調整，是否已同步更新 `README.md` 或 `docs/` 下對應文檔。
 

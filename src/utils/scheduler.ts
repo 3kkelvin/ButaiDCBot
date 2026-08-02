@@ -5,6 +5,7 @@ import { config } from '../config';
 import { roleService } from '../services/roleService';
 import { threadService } from '../services/threadService';
 import timeoutService from '../services/timeoutService';
+import { vettingService } from '../services/vettingService';
 
 /**
  * 任務配置介面
@@ -42,6 +43,13 @@ const jobs: JobConfig[] = [
     cron: '* * * * *', // 每分鐘執行一次
     action: async () => {
       await timeoutService.scanAndReleaseExpired(client);
+    },
+  },
+  {
+    name: 'Vetting Auto-Expire Scan (每小時自動掃描並結案逾期審核討論串)',
+    cron: '0 * * * *', // 每小時整點執行一次
+    action: async () => {
+      await vettingService.scanAndExpireThreads(client);
     },
   },
 ];

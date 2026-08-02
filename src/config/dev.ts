@@ -45,4 +45,11 @@ export const devConfig = {
     inactiveTimeoutSeconds: 86400, // 24 小時無訊息則自動歸檔 (單位: 秒)
     excludedTagIds: ['1527348840540405854'] as string[], // 豁免標籤 ID 列表 (帶有這些 Tag 的貼文跳過不關閉)
   },
+  vetting: {
+    officialVettingForum: '1527348842150756542', // 測試環境正式成員審核論壇 ID
+    voterVettingForum: '1527348842150756538', // 測試環境選民審核論壇 ID
+    voterRequiredApprovals: 3, // 選民審核設定的通過票數
+    reviewTimeoutDays: 1, // 審核有效天數 (預設 7 天)
+    reviewerRoleId: '1527348833040859253', // 申請審核員 Role ID
+  },
 };

@@ -25,6 +25,8 @@ export const RedisKeys = {
     timeoutGlobalRelease: (guildId: string, userId: string) => `timeout:global_release:${guildId}:${userId}`,
     /** /timeout 背景自動掃描鎖 */
     timeoutScan: () => 'timeout:scan',
+    /** 審核身份驗證操作鎖 */
+    vettingUser: (userId: string) => `vetting:user:${userId}`,
   },
 
   /**
@@ -37,5 +39,7 @@ export const RedisKeys = {
     pingServiceVerify: () => 'test_cache_service_key',
     /** 伺服器 RoleDivider 配置快取 Key */
     roleDividerConfig: (guildId: string) => `role_divider:config:${guildId}`,
+    /** 審核討論串單據快取 Key */
+    vettingRecord: (threadId: string) => `vetting:record:${threadId}`,
   },
 };
