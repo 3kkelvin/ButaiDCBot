@@ -1,3 +1,5 @@
+import { ManualRoleRule } from '../models/role/manualRoleDTO';
+
 /**
  * 開發與測試環境 (Dev Discord Server) 配置檔
  * 所有 Channel ID、Role ID、Guild ID 直接定義於此檔案中並進入 Git 版控。
@@ -26,6 +28,18 @@ export const devConfig = {
     special: '1527348832986202238', // 特殊人士 Role ID
     prisoner: '1527348833057771557', // 囚犯 Role ID
   },
+  manualRoleRules: [
+    {
+      operatorRoleId: '1527348833040859253', // 申請審核員 ID
+      allowedRoleIds: ['1527348832965365961', '1527348832965365960', '1527348832965365959'], // 可給予/移除：選民、正式成員、臨時成員
+      description: '申請審核員手動給予/移除選民、正式成員、臨時成員身分組權限',
+    },
+    {
+      operatorRoleId: '1527348833057771554', // 臺灣頻道管理 ID
+      allowedRoleIds: ['1527348832902316135'], // 可給予/移除：臺灣公民
+      description: '臺灣頻道管理手動給予/移除臺灣公民身分組權限',
+    },
+  ] as ManualRoleRule[],
   threadAutoClose: {
     enabled: true,
     inactiveTimeoutSeconds: 86400, // 24 小時無訊息則自動歸檔 (單位: 秒)

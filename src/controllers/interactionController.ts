@@ -11,6 +11,15 @@ export const setupInteractionController = (client: Client) => {
   client.on(
     Events.InteractionCreate,
     discordEventHandler('InteractionCreate', async (interaction) => {
+      // 處理 Autocomplete 事件
+      if (interaction.isAutocomplete()) {
+        const command = commandsMap.get(interaction.commandName);
+        if (command && typeof command.autocomplete === 'function') {
+          await command.autocomplete(interaction);
+        }
+        return;
+      }
+
       if (!interaction.isChatInputCommand()) return;
 
       const command = commandsMap.get(interaction.commandName);

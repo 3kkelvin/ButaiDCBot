@@ -7,7 +7,6 @@ import { PermissionGuard } from '../utils/permissionGuard';
 import { AppError } from '../utils/appError';
 import discordRepository from '../repositories/discordRepository';
 import socialCreditRepository from '../repositories/socialCreditRepository';
-import { ISocialCreditLog } from '../models/db/socialCreditLog';
 import { IIdentityCheckDTO } from '../models/role/identityCheckDTO';
 import { IDemeritDTO } from '../models/role/demeritDTO';
 
@@ -642,6 +641,139 @@ export class RoleService {
     }
 
     return result;
+  }
+
+  /**
+   * 根據執行者目前擁有的身分組，動態計算該執行者被授權可操作的目標身分組選單 (供 Autocomplete 使用)
+   *
+   * @param guild Discord 伺服器實例
+   * @param executorMember 執行者 GuildMember 物件
+   * @param focusedValue 使用者目前輸入的搜尋關鍵字
+   * @returns Autocomplete 選項陣列 (最多 25 筆)
+   */
+  public getManualRoleChoices(
+    guild: Guild,
+    executorMember: GuildMember,
+    focusedValue: string
+  ): { name: string; value: string }[] {
+    const rules = config.manualRoleRules || [];
+    if (rules.length === 0) return [];
+
+    // 收集執行者擁有的所有授權身分組可操作之目標身分組 ID 聯集
+    const allowedRoleIdsSet = new Set<string>();
+
+    for (const rule of rules) {
+      if (executorMember.roles.cache.has(rule.operatorRoleId)) {
+        for (const roleId of rule.allowedRoleIds) {
+          allowedRoleIdsSet.add(roleId);
+        }
+      }
+    }
+
+    if (allowedRoleIdsSet.size === 0) return [];
+
+    const choices: { name: string; value: string }[] = [];
+    const lowerKeyword = focusedValue.toLowerCase().trim();
+
+    for (const roleId of allowedRoleIdsSet) {
+      const role = guild.roles.cache.get(roleId);
+      if (role) {
+        if (!lowerKeyword || role.name.toLowerCase().includes(lowerKeyword)) {
+          choices.push({
+            name: `@${role.name}`,
+            value: role.id,
+          });
+        }
+      }
+    }
+
+    return choices.slice(0, 25);
+  }
+
+  /**
+   * 手動給予或移除目標成員指定的身份組 (BLL 核心業務邏輯)
+   *
+   * @param guild Discord 伺服器實例
+   * @param executorMember 執行者 GuildMember
+   * @param targetMember 目標被操作成員 GuildMember
+   * @param targetRoleId 目標身分組 ID
+   * @param action 操作行為 ('give' | 'remove')
+   */
+  public async manualManageRole(
+    guild: Guild,
+    executorMember: GuildMember,
+    targetMember: GuildMember,
+    targetRoleId: string,
+    action: 'give' | 'remove'
+  ): Promise<EmbedBuilder> {
+    // 1. 權限雙重校驗：比對執行者擁有的身分組是否涵蓋此目標身分組
+    const rules = config.manualRoleRules || [];
+    const allowedRoleIdsSet = new Set<string>();
+
+    for (const rule of rules) {
+      if (executorMember.roles.cache.has(rule.operatorRoleId)) {
+        for (const roleId of rule.allowedRoleIds) {
+          allowedRoleIdsSet.add(roleId);
+        }
+      }
+    }
+
+    if (!allowedRoleIdsSet.has(targetRoleId)) {
+      throw new AppError('您沒有權限手動對此身分組進行給予或移除操作！', 403);
+    }
+
+    // 2. 獲取目標 Role 物件
+    const targetRole = await guild.roles.fetch(targetRoleId).catch(() => null);
+    if (!targetRole) {
+      throw new AppError('找不到指定的目標身分組！', 400);
+    }
+
+    // 3. 特殊身分組與 Discord 權限階層防範
+    if (targetRole.id === guild.id || targetRole.managed) {
+      throw new AppError('無法手動操作系統內建或機器人專屬身分組！', 400);
+    }
+
+    const botMember = await guild.members.fetchMe();
+    if (botMember.roles.highest.position <= targetRole.position) {
+      throw new AppError('機器人的最高身分組階層低於或等於該目標身分組，無法執行此操作！', 400);
+    }
+
+    // 4. 執行異動邏輯
+    const actionText = action === 'give' ? '給予' : '移除';
+    const hasRole = targetMember.roles.cache.has(targetRole.id);
+
+    if (action === 'give') {
+      if (hasRole) {
+        return new EmbedBuilder()
+          .setColor('#ffcc00')
+          .setTitle('身分組操作提示')
+          .setDescription(`成員 ${targetMember.user} 已經擁有 <@&${targetRole.id}> 身分組，無需重複給予！`)
+          .setTimestamp();
+      }
+      await targetMember.roles.add(targetRole);
+    } else {
+      if (!hasRole) {
+        return new EmbedBuilder()
+          .setColor('#ffcc00')
+          .setTitle('身分組操作提示')
+          .setDescription(`成員 ${targetMember.user} 原本就未擁有 <@&${targetRole.id}> 身分組，無需重複移除！`)
+          .setTimestamp();
+      }
+      await targetMember.roles.remove(targetRole);
+    }
+
+    // 5. 組裝成功 Embed 回應
+    const color = action === 'give' ? '#00ff7f' : '#ff4500';
+    return new EmbedBuilder()
+      .setColor(color)
+      .setTitle(`手動${actionText}身分組成功`)
+      .addFields(
+        { name: '操作者', value: `${executorMember.user}`, inline: true },
+        { name: '目標成員', value: `${targetMember.user}`, inline: true },
+        { name: '目標身分組', value: `<@&${targetRole.id}>`, inline: false }
+      )
+      .setTimestamp()
+      .setFooter({ text: `操作類型: manual ${action}` });
   }
 }
 

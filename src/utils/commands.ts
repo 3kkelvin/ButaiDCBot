@@ -1,7 +1,7 @@
 /**
  * 負責自動化映射每個指令到/help指令底下而不用手動更新
  */
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { AutocompleteInteraction, ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { pingCommand } from '../controllers/pingCommand';
 import { helpCommand } from '../controllers/helpCommand';
 import { roleDividerCommand } from '../controllers/roleDividerCommand';
@@ -22,6 +22,7 @@ export interface ICommand {
     }
   >;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+  autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>;
 }
 
 // 收集本專案所有的指令單例
