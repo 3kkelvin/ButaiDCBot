@@ -63,7 +63,7 @@ function runHelpPreview() {
 
     const options = json.options || [];
     const groups = options.filter((opt: any) => opt.type === 2);
-    const subcommands = options.filter((opt: any) => opt.type === 1);
+    const directSubcommands = options.filter((opt: any) => opt.type === 1);
 
     const items: Array<{
       fullName: string;
@@ -72,40 +72,44 @@ function runHelpPreview() {
       skipAuditLog: boolean;
     }> = [];
 
-    if (groups.length > 0) {
-      totalSubcommandGroups += groups.length;
-      for (const g of groups) {
-        const gName = g.name;
-        const gSubs = g.options?.filter((sub: any) => sub.type === 1) || [];
-        totalSubcommands += gSubs.length;
+    if (groups.length > 0 || directSubcommands.length > 0) {
+      if (groups.length > 0) {
+        totalSubcommandGroups += groups.length;
+        for (const g of groups) {
+          const gName = g.name;
+          const gSubs = g.options?.filter((sub: any) => sub.type === 1) || [];
+          totalSubcommands += gSubs.length;
 
-        for (const sub of gSubs) {
+          for (const sub of gSubs) {
+            const subName = sub.name;
+            const subDesc = sub.description || '無描述資訊';
+            const fullKey = `${gName}/${subName}`;
+            const subMeta = cmd.subcommandsMetadata?.[fullKey] || cmd.subcommandsMetadata?.[subName];
+
+            items.push({
+              fullName: `/${name} ${gName} ${subName}`,
+              description: subDesc,
+              annotations: subMeta?.annotations || [],
+              skipAuditLog,
+            });
+          }
+        }
+      }
+
+      if (directSubcommands.length > 0) {
+        totalSubcommands += directSubcommands.length;
+        for (const sub of directSubcommands) {
           const subName = sub.name;
           const subDesc = sub.description || '無描述資訊';
-          const fullKey = `${gName}/${subName}`;
-          const subMeta = cmd.subcommandsMetadata?.[fullKey] || cmd.subcommandsMetadata?.[subName];
+          const subMeta = cmd.subcommandsMetadata?.[subName];
 
           items.push({
-            fullName: `/${name} ${gName} ${subName}`,
+            fullName: `/${name} ${subName}`,
             description: subDesc,
             annotations: subMeta?.annotations || [],
             skipAuditLog,
           });
         }
-      }
-    } else if (subcommands.length > 0) {
-      totalSubcommands += subcommands.length;
-      for (const sub of subcommands) {
-        const subName = sub.name;
-        const subDesc = sub.description || '無描述資訊';
-        const subMeta = cmd.subcommandsMetadata?.[subName];
-
-        items.push({
-          fullName: `/${name} ${subName}`,
-          description: subDesc,
-          annotations: subMeta?.annotations || [],
-          skipAuditLog,
-        });
       }
     } else {
       totalSubcommands += 1;

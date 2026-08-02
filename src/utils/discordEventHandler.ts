@@ -169,7 +169,12 @@ export function discordEventHandler<T extends any[]>(eventHandlerName: string, f
 
       // 2. 針對可交互的事件 (如 Interaction)，向用戶端提供錯誤回饋
       const firstArg = args[0];
-      if (firstArg && typeof firstArg.reply === 'function') {
+      if (firstArg && typeof firstArg.isAutocomplete === 'function' && firstArg.isAutocomplete()) {
+        // Autocomplete 專屬 Fail-Safe：若尚未回應，自動發送空陣列以避免 UI 卡死
+        if (!firstArg.responded) {
+          await firstArg.respond([]).catch(() => {});
+        }
+      } else if (firstArg && typeof firstArg.reply === 'function') {
         const userMessage = isAppError ? error.message : '系統發生未知錯誤';
 
         try {

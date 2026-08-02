@@ -189,14 +189,13 @@ export class HelpService {
       const skipAuditLog = !!cmd.skipAuditLog;
 
       const options = json.options || [];
-      const hasSubcommandGroup = options.some((opt: any) => opt.type === 2);
-      const hasSubcommand = options.some((opt: any) => opt.type === 1);
+      const groups = options.filter((opt: any) => opt.type === 2);
+      const directSubcommands = options.filter((opt: any) => opt.type === 1);
 
       const items: IHelpItem[] = [];
 
-      if (hasSubcommandGroup) {
-        // 1. 含有子指令群組 (SubcommandGroup, type === 2)
-        const groups = options.filter((opt: any) => opt.type === 2);
+      if (groups.length > 0 || directSubcommands.length > 0) {
+        // 1. 解析所有 SubcommandGroup (type === 2) 及其內部的子指令
         for (const group of groups) {
           const groupName = group.name;
           const groupSubs = group.options?.filter((sub: any) => sub.type === 1) || [];
@@ -217,10 +216,9 @@ export class HelpService {
             });
           }
         }
-      } else if (hasSubcommand) {
-        // 2. 只有單層子指令 (Subcommand, type === 1)
-        const subcommands = options.filter((opt: any) => opt.type === 1);
-        for (const sub of subcommands) {
+
+        // 2. 解析所有直屬的 Subcommand (type === 1)
+        for (const sub of directSubcommands) {
           const subName = sub.name;
           const subDesc = sub.description || '無描述資訊';
           const subMeta = cmd.subcommandsMetadata?.[subName];

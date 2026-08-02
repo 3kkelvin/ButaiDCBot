@@ -1,4 +1,11 @@
-import { ChatInputCommandInteraction, GuildMember, Guild } from 'discord.js';
+import {
+  AutocompleteInteraction,
+  ChatInputCommandInteraction,
+  GuildMember,
+  Guild,
+  Interaction,
+  APIInteractionGuildMember,
+} from 'discord.js';
 import { AppError } from './appError';
 
 /**
@@ -9,11 +16,14 @@ export class PermissionGuard {
   /**
    * 檢查使用者是否擁有指定的任一身分組 (純布林判斷)
    *
-   * @param target Discord 互動事件 (ChatInputCommandInteraction) 或 成員物件 (GuildMember)
+   * @param target Discord 互動事件 (ChatInputCommandInteraction / AutocompleteInteraction) 或 成員物件 (GuildMember)
    * @param requiredRoles 允許的身分組 ID 或身分組 ID 陣列
    * @returns true: 擁有至少一個對應身分組 ; false: 無任何匹配身分組
    */
-  static hasRole(target: ChatInputCommandInteraction | GuildMember | any, requiredRoles: string | string[]): boolean {
+  static hasRole(
+    target: Interaction | GuildMember | APIInteractionGuildMember | null | undefined,
+    requiredRoles: string | string[]
+  ): boolean {
     let member: GuildMember | null = null;
 
     if (target && typeof target === 'object') {
@@ -47,7 +57,7 @@ export class PermissionGuard {
    * @param customErrorMessage 權限不足時的警示訊息 (可選)
    */
   static requireRole(
-    target: ChatInputCommandInteraction | GuildMember | any,
+    target: ChatInputCommandInteraction | GuildMember | Interaction,
     requiredRoles: string | string[],
     customErrorMessage: string = '❌ 您沒有權限執行此操作！'
   ): void {
@@ -66,7 +76,7 @@ export class PermissionGuard {
    * @returns Guild 物件
    */
   static guildGuard(
-    interaction: ChatInputCommandInteraction | any,
+    interaction: ChatInputCommandInteraction | Interaction,
     customErrorMessage: string = '❌ 此指令僅限在 Discord 伺服器內使用！'
   ): Guild {
     if (!interaction.guild) {
@@ -84,7 +94,7 @@ export class PermissionGuard {
    * @param customErrorMessage 自訂錯誤提示 (可選)
    */
   static async targetGuard(
-    interaction: ChatInputCommandInteraction | any,
+    interaction: ChatInputCommandInteraction,
     optionName: string = 'user',
     customErrorMessage: string = '❌ 找不到該成員或該成員不在伺服器中！'
   ): Promise<GuildMember> {

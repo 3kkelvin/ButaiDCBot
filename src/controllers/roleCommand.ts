@@ -1,15 +1,49 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { AutocompleteInteraction, ChatInputCommandInteraction, GuildMember, SlashCommandBuilder } from 'discord.js';
 import { roleService } from '../services/roleService';
 import { PermissionGuard } from '../utils/permissionGuard';
 import { config } from '../config';
 import { BaseResponse } from '../utils/baseResponse';
 import { ICommand } from '../utils/commands';
-import { AppError } from '../utils/appError';
 
 export const roleCommand: ICommand = {
   data: new SlashCommandBuilder()
     .setName('role')
     .setDescription('權限、身分組相關指令大類')
+    .addSubcommandGroup((group) =>
+      group
+        .setName('manual')
+        .setDescription('手動身分組給予與移除')
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('give')
+            .setDescription('手動給予指定成員身分組')
+            .addUserOption((option) =>
+              option.setName('member').setDescription('被給予身分組的目標成員').setRequired(true)
+            )
+            .addStringOption((option) =>
+              option
+                .setName('role')
+                .setDescription('選擇要給予的身分組')
+                .setRequired(true)
+                .setAutocomplete(true)
+            )
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('remove')
+            .setDescription('手動移除指定成員身分組')
+            .addUserOption((option) =>
+              option.setName('member').setDescription('被移除身分組的目標成員').setRequired(true)
+            )
+            .addStringOption((option) =>
+              option
+                .setName('role')
+                .setDescription('選擇要移除的身分組')
+                .setRequired(true)
+                .setAutocomplete(true)
+            )
+        )
+    )
     .addSubcommand((subcommand) =>
       subcommand
         .setName('identity_check')
@@ -73,6 +107,8 @@ export const roleCommand: ICommand = {
 
   annotations: ['身份組管理'],
   subcommandsMetadata: {
+    'manual/give': { annotations: ['手動給予身分組', '(僅特定公職)'] },
+    'manual/remove': { annotations: ['手動移除身分組', '(僅特定公職)'] },
     identity_check: { annotations: ['身分組檢查', '(僅技術公務員)'] },
     view_position: { annotations: ['公職列表'] },
     demerit: { annotations: ['管理加扣分', '(僅管理員權限)'] },
@@ -81,9 +117,40 @@ export const roleCommand: ICommand = {
     total: { annotations: ['基本資訊'] },
   },
 
+  async autocomplete(interaction: AutocompleteInteraction) {
+    const guild = PermissionGuard.guildGuard(interaction);
+    const member = interaction.member as GuildMember;
+    if (!member) return;
+
+    const focusedOption = interaction.options.getFocused(true);
+    if (focusedOption.name === 'role') {
+      const choices = roleService.getManualRoleChoices(guild, member, focusedOption.value);
+      await interaction.respond(choices);
+    }
+  },
+
   async execute(interaction: ChatInputCommandInteraction) {
+    const subcommandGroup = interaction.options.getSubcommandGroup(false);
     const subcommand = interaction.options.getSubcommand();
     const guild = PermissionGuard.guildGuard(interaction);
+
+    if (subcommandGroup === 'manual') {
+      await interaction.deferReply({ ephemeral: false });
+      const executorMember = interaction.member as GuildMember;
+      const targetMember = await PermissionGuard.targetGuard(interaction, 'member');
+      const targetRoleId = interaction.options.getString('role', true);
+      const action = subcommand as 'give' | 'remove';
+
+      const embed = await roleService.manualManageRole(
+        guild,
+        executorMember,
+        targetMember,
+        targetRoleId,
+        action
+      );
+      await BaseResponse.send(interaction, embed);
+      return;
+    }
 
     switch (subcommand) {
       case 'identity_check': {
@@ -145,3 +212,4 @@ export const roleCommand: ICommand = {
     }
   },
 };
+
