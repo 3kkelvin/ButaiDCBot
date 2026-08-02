@@ -271,7 +271,7 @@ export const timeoutCommand: ICommand = {
           interaction,
           {
             content: `已成功將 <@${targetMember.id}> 在頻道 <#${channel.id}> 禁言 ${minutes} 分鐘！\n預計解禁時間：<t:${releaseUnix}:R>\n原因：${reason}`,
-            allowedMentions: { parse: [] }, // 禁言發動時不 Ping 真人
+            allowedMentions: { users: [targetMember.id] }, // 精準 @ 被禁言者
           }
         );
         return;
@@ -331,7 +331,7 @@ export const timeoutCommand: ICommand = {
           interaction,
           {
             content: `已成功將 <@${targetMember.id}> 進行全服${typeLabel} ${minutes} 分鐘！\n預計出獄時間：<t:${releaseUnix}:R>\n原因：${reason}`,
-            allowedMentions: { parse: [] }, // 關押發動時不 Ping 真人
+            allowedMentions: { users: [targetMember.id] }, // 精準 @ 被關押者
           }
         );
         return;
