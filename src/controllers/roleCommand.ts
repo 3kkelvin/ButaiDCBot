@@ -1,9 +1,10 @@
-import { AutocompleteInteraction, ChatInputCommandInteraction, GuildMember, SlashCommandBuilder } from 'discord.js';
+import { AutocompleteInteraction, ChatInputCommandInteraction, GuildMember, PermissionFlagsBits, Role, SlashCommandBuilder } from 'discord.js';
 import { roleService } from '../services/roleService';
 import { PermissionGuard } from '../utils/permissionGuard';
 import { config } from '../config';
 import { BaseResponse } from '../utils/baseResponse';
 import { ICommand } from '../utils/commands';
+import { AppError } from '../utils/appError';
 
 export const roleCommand: ICommand = {
   data: new SlashCommandBuilder()
@@ -41,6 +42,27 @@ export const roleCommand: ICommand = {
                 .setDescription('選擇要移除的身分組')
                 .setRequired(true)
                 .setAutocomplete(true)
+            )
+        )
+    )
+    .addSubcommandGroup((group) =>
+      group
+        .setName('clear')
+        .setDescription('清洗與重置身分組設定')
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('all')
+            .setDescription('完全清洗指定身分組 (拔除所有人、權限與頻道設定、改名備用身分組並排至最下)')
+            .addRoleOption((option) =>
+              option.setName('role').setDescription('要完全清洗的目標身分組').setRequired(true)
+            )
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('permissions')
+            .setDescription('清除指定身分組的權限設定與所有頻道權限覆寫')
+            .addRoleOption((option) =>
+              option.setName('role').setDescription('要清除權限的目標身分組').setRequired(true)
             )
         )
     )
@@ -109,6 +131,8 @@ export const roleCommand: ICommand = {
   subcommandsMetadata: {
     'manual/give': { annotations: ['手動給予身分組', '(僅特定公職)'] },
     'manual/remove': { annotations: ['手動移除身分組', '(僅特定公職)'] },
+    'clear/all': { annotations: ['完全清洗身分組', '(僅管理員權限)'] },
+    'clear/permissions': { annotations: ['清除身分組權限', '(僅管理員權限)'] },
     identity_check: { annotations: ['身分組檢查', '(僅技術公務員)'] },
     view_position: { annotations: ['公職列表'] },
     demerit: { annotations: ['管理加扣分', '(僅管理員權限)'] },
@@ -148,6 +172,24 @@ export const roleCommand: ICommand = {
         targetRoleId,
         action
       );
+      await BaseResponse.send(interaction, embed);
+      return;
+    }
+
+    if (subcommandGroup === 'clear') {
+      const member = interaction.member as GuildMember;
+      if (!member || !member.permissions.has(PermissionFlagsBits.Administrator)) {
+        throw new AppError('權限不足：只有伺服器管理員 (Administrator) 可以執行身分組清洗操作！', 403);
+      }
+
+      await interaction.deferReply({ ephemeral: false });
+      const targetRole = interaction.options.getRole('role', true) as Role;
+
+      const embed =
+        subcommand === 'all'
+          ? await roleService.clearRoleAll(guild, targetRole)
+          : await roleService.clearRolePermissions(guild, targetRole);
+
       await BaseResponse.send(interaction, embed);
       return;
     }

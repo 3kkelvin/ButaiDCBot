@@ -59,7 +59,7 @@ export class PermissionGuard {
   static requireRole(
     target: ChatInputCommandInteraction | GuildMember | Interaction,
     requiredRoles: string | string[],
-    customErrorMessage: string = '❌ 您沒有權限執行此操作！'
+    customErrorMessage: string = '您沒有權限執行此操作！'
   ): void {
     const isAllowed = this.hasRole(target, requiredRoles);
     if (!isAllowed) {
@@ -77,7 +77,7 @@ export class PermissionGuard {
    */
   static guildGuard(
     interaction: ChatInputCommandInteraction | Interaction,
-    customErrorMessage: string = '❌ 此指令僅限在 Discord 伺服器內使用！'
+    customErrorMessage: string = '此指令僅限在 Discord 伺服器內使用！'
   ): Guild {
     if (!interaction.guild) {
       throw new AppError(customErrorMessage, 400);
@@ -96,7 +96,7 @@ export class PermissionGuard {
   static async targetGuard(
     interaction: ChatInputCommandInteraction,
     optionName: string = 'user',
-    customErrorMessage: string = '❌ 找不到該成員或該成員不在伺服器中！'
+    customErrorMessage: string = '找不到該成員或該成員不在伺服器中！'
   ): Promise<GuildMember> {
     const guild = this.guildGuard(interaction, customErrorMessage);
     const user = interaction.options.getUser(optionName, true);

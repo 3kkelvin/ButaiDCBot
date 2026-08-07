@@ -525,7 +525,7 @@ export class RoleService {
     if (result.removedRoles.length > 0) {
       const roleNames = result.removedRoles.map((r) => `<@&${r.id}>`).join('、');
       embed.addFields({
-        name: '⚠️ 身分組懲處解任通知',
+        name: '身分組懲處解任通知',
         value: `該成員點數已降至 **${result.newScore}** 分 (<= 0)，已自動拔除其 adminTag 及以下管理身分組：\n${roleNames}`,
       });
     }
@@ -774,6 +774,128 @@ export class RoleService {
       )
       .setTimestamp()
       .setFooter({ text: `操作類型: manual ${action}` });
+  }
+
+  /**
+   * 身分組可清洗性校驗 (防護防線)
+   * 1. 嚴禁清洗 @everyone
+   * 2. 嚴禁清洗系統核心三大身分組 (選民、正式成員、臨時成員)
+   * 3. 機器人最高身分組位階必須高於目標身分組
+   */
+  private async validateRoleClearable(guild: Guild, targetRole: Role): Promise<void> {
+    if (targetRole.id === guild.id) {
+      throw new AppError('無法對 @everyone 身分組進行清洗操作！', 400);
+    }
+
+    const protectedRoleIds = [config.roles.voter, config.roles.official, config.roles.temporary].filter(Boolean);
+
+    if (protectedRoleIds.includes(targetRole.id)) {
+      throw new AppError('無法對系統保護的核心身分組（選民 / 正式成員 / 臨時成員）進行清洗操作！', 400);
+    }
+
+    const botMember = await guild.members.fetchMe();
+    if (botMember.roles.highest.position <= targetRole.position) {
+      throw new AppError('機器人的最高身分組階層低於或等於目標身分組，無法執行此操作！', 400);
+    }
+  }
+
+  /**
+   * 清除指定身分組的權限設定與所有頻道權限覆寫 (Permissions Only)
+   */
+  public async clearRolePermissions(guild: Guild, targetRole: Role): Promise<EmbedBuilder> {
+    await this.validateRoleClearable(guild, targetRole);
+
+    // 1. 清除身分組伺服器層級權限 (改為 0n)
+    await targetRole.setPermissions(0n);
+
+    // 2. 遍歷所有頻道刪除對該身分組的 Overwrites
+    let clearedChannelsCount = 0;
+    for (const channel of guild.channels.cache.values()) {
+      if ('permissionOverwrites' in channel && channel.permissionOverwrites.cache.has(targetRole.id)) {
+        await channel.permissionOverwrites.delete(targetRole.id).catch(() => null);
+        clearedChannelsCount++;
+      }
+    }
+
+    return new EmbedBuilder()
+      .setTitle('身分組權限與頻道設定清除成功')
+      .setColor(0x3498db)
+      .addFields(
+        { name: '目標身分組', value: `<@&${targetRole.id}>`, inline: true },
+        { name: '清除頻道權限覆寫數', value: `${clearedChannelsCount} 個頻道`, inline: true }
+      )
+      .setTimestamp();
+  }
+
+  /**
+   * 完全清洗指定身分組 (All)
+   * 拔除所有人、身分組與頻道設定、清除頭像跟名字(改為'備用身分組')、排到最下面
+   */
+  public async clearRoleAll(guild: Guild, targetRole: Role): Promise<EmbedBuilder> {
+    await this.validateRoleClearable(guild, targetRole);
+
+    const lockKey = RedisKeys.Lock.clearRole(guild.id, targetRole.id);
+
+    return await lockService.runWithLock(
+      {
+        lockKey,
+        ttlMs: 120000,
+        releaseOnSuccess: true,
+      },
+      async () => {
+        const oldRoleName = targetRole.name;
+
+        // 1. 清除身分組權限與頻道 Overwrites
+        // 內含 validateRoleClearable、setPermissions(0n) 與全頻道 overwrite 刪除
+        await targetRole.setPermissions(0n);
+
+        let clearedChannelsCount = 0;
+        for (const channel of guild.channels.cache.values()) {
+          if ('permissionOverwrites' in channel && channel.permissionOverwrites.cache.has(targetRole.id)) {
+            await channel.permissionOverwrites.delete(targetRole.id).catch(() => null);
+            clearedChannelsCount++;
+          }
+        }
+
+        // 2. 拔除所有擁有該身分組的成員
+        const membersCollection = await discordRepository.getGuildMembers(guild);
+        let removedMembersCount = 0;
+
+        for (const member of membersCollection.values()) {
+          if (member.roles.cache.has(targetRole.id)) {
+            await member.roles.remove(targetRole.id).catch(() => null);
+            removedMembersCount++;
+          }
+        }
+
+        // 3. 重置名稱為「備用身分組」並清除 Icon
+        await targetRole
+          .edit({
+            name: '備用身分組',
+            icon: null,
+            unicodeEmoji: null,
+          })
+          .catch(() => null);
+
+        // 4. 排到最下面 (位置設為 1，高於 @everyone 的最低位)
+        await targetRole.setPosition(1).catch(() => null);
+
+        return new EmbedBuilder()
+          .setTitle('身分組完全清洗成功')
+          .setColor(0xe74c3c)
+          .addFields(
+            { name: '原身分組名稱', value: oldRoleName, inline: true },
+            { name: '拔除成員數量', value: `${removedMembersCount} 人`, inline: true },
+            { name: '清除頻道權限覆寫數', value: `${clearedChannelsCount} 個頻道`, inline: true },
+            {
+              name: '後續狀態調整',
+              value: '身分組已重置更名為「備用身分組」、圖示已清除，並已移動至排序最下方。',
+              inline: false,
+            }
+          )
+          .setTimestamp();
+      }
+    );
   }
 }
 

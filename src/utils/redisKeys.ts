@@ -27,6 +27,8 @@ export const RedisKeys = {
     timeoutScan: () => 'timeout:scan',
     /** 審核身份驗證操作鎖 */
     vettingUser: (userId: string) => `vetting:user:${userId}`,
+    /** 身分組清洗操作鎖 */
+    clearRole: (guildId: string, roleId: string) => `clear_role:${guildId}:${roleId}`,
   },
 
   /**
