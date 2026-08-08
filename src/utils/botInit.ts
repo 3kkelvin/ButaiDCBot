@@ -3,6 +3,7 @@ import { initializeDatabase } from './dbInit';
 import { startHealthCheckServer } from './healthCheckServer';
 import { initSchedulers } from './scheduler';
 import { helpService } from '../services/helpService';
+import { threadService } from '../services/threadService';
 
 /**
  * 同步 Slash Commands 指令至 Discord API
@@ -60,9 +61,11 @@ export async function handleBotInit(readyClient: Client, commands: Map<string, a
   // 1. 同步 Slash Commands
   await syncSlashCommands(readyClient, commands);
 
-  // 2. 執行資料庫自動建表與遷移 (偵測並建立 caches、distributed_locks 表)
+  // 2. 執行資料庫自動建表與遷移 (偵測並建立 caches、distributed_locks、thread_settings 表)
   try {
     await initializeDatabase();
+    // 3. 城堡法全域白名單冷啟動預熱
+    await threadService.warmUpActiveThreads();
   } catch (dbError) {
     console.error('[BotInit] 資料庫初始化失敗，Bot 繼續運行但部分 DB 操作可能出錯：', dbError);
   }

@@ -1,2 +1,8 @@
 # Set default behavior to automatic text conversion with LF line endings
 * text=auto eol=lf
+
+# Ignore lockfiles from GitHub Linguist language stats and collapse in PR diffs
+package-lock.json linguist-generated=true
+*.lock linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
+yarn.lock linguist-generated=true

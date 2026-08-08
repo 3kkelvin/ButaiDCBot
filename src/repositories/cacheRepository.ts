@@ -101,6 +101,22 @@ export class CacheRepository {
 
     await pipeline.exec();
   }
+
+  /**
+   * 將項目加入指定 Set 快取集合
+   */
+  public async addToSet(setKey: string, ...items: string[]): Promise<void> {
+    if (items.length === 0) return;
+    await redis.sadd(setKey, ...items);
+  }
+
+  /**
+   * 檢查項目是否存在於 Set 快取集合中
+   */
+  public async isMemberOfSet(setKey: string, item: string): Promise<boolean> {
+    const result = await redis.sismember(setKey, item);
+    return result === 1;
+  }
 }
 
 export default new CacheRepository();
