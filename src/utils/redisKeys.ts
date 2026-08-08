@@ -43,5 +43,17 @@ export const RedisKeys = {
     roleDividerConfig: (guildId: string) => `role_divider:config:${guildId}`,
     /** 審核討論串單據快取 Key */
     vettingRecord: (threadId: string) => `vetting:record:${threadId}`,
+    /** 討論串城堡法設定快取 Key */
+    threadSetting: (threadId: string) => `thread_setting:${threadId}`,
+    /** 討論串城堡法全域有值白名單 Set Key */
+    activeCastleThreadsSet: () => 'active_castle_threads',
+  },
+
+  /**
+   * 快取類別 (Category) 命名空間
+   */
+  Category: {
+    /** 討論串城堡法設定類別 */
+    threadSetting: 'thread_setting',
   },
 };

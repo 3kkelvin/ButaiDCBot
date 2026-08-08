@@ -1,5 +1,6 @@
 import { Client, Events, Message } from 'discord.js';
 import { discordEventHandler } from '../utils/discordEventHandler';
+import { threadService } from '../services/threadService';
 
 /**
  * 處理並過濾文字訊息
@@ -11,10 +12,14 @@ export async function handleMessage(message: Message): Promise<void> {
     return;
   }
 
-  const content = message.content;
-  const authorTag = message.author.tag;
+  // 2. 觸發討論串城堡法執法邏輯 (黑單刪除、鎖定過濾、快捷回覆 ban/pin/unpin)
+  if (message.channel.isThread()) {
+    await threadService.handleThreadMessage(message);
+  }
 
-  // 2. 範例：關鍵字 (髒話/敏感詞) 屏蔽與提醒
+  const content = message.content;
+
+  // 3. 範例：關鍵字 (髒話/敏感詞) 屏蔽與提醒
   const sensitiveKeywords = ['幹', '機車', 'joyce'];
   const hasSensitiveWord = sensitiveKeywords.some((keyword) => content.includes(keyword));
 
@@ -22,7 +27,7 @@ export async function handleMessage(message: Message): Promise<void> {
     return;
   }
 
-  // 3. 範例：URL 連結安全警告與處理
+  // 4. 範例：URL 連結安全警告與處理
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   if (urlRegex.test(content)) {
     // 預留：未來的 URL 連結安全警告與處理邏輯

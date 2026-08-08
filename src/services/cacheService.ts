@@ -65,6 +65,20 @@ export class CacheService {
   public async deleteByCategory(category: string): Promise<void> {
     await cacheRepository.deleteByCategory(category);
   }
+
+  /**
+   * 將項目加入指定 Set 快取集合
+   */
+  public async addToSet(setKey: string, ...items: string[]): Promise<void> {
+    await cacheRepository.addToSet(setKey, ...items);
+  }
+
+  /**
+   * 檢查項目是否存在於 Set 快取集合中
+   */
+  public async isMemberOfSet(setKey: string, item: string): Promise<boolean> {
+    return cacheRepository.isMemberOfSet(setKey, item);
+  }
 }
 
 export default new CacheService();
