@@ -34,7 +34,7 @@ trigger: always_on
    - 所有 DTO, DAO, 全域介面、型別與 Enum **必須統一集中於 `src/models/`** 目錄下（例如：`src/models/role/demeritDTO.ts`）。
    - 所有 DB Entity應該集中收集於 `src/models/db/`。
    - 按業務模組與領域建立子目錄並建立獨立檔案，供跨層引用。
-   - 每個型別需要撰寫註解，並獨立匯出。
+   - 每個型別需要撰寫完整 JSDoc 註解，並獨立匯出。
 
 ---
 
@@ -44,19 +44,21 @@ trigger: always_on
 
 1. **表現層 - Command (`src/controllers/xxxCommand.ts`)**
    - **職責**：專責 Discord Slash Command 定義 (`SlashCommandBuilder`)、Option 與 Subcommand 宣告。作為指令入口，將請求分發轉發至 Controller 或 Service。
+   - **⚠️ 禁用行為**：嚴禁寫死業務文案、UI Builder/Payload 拼裝或複雜邏輯，必須呼叫 Service 取用工廠方法。
 
 2. **表現層 - Controller (`src/controllers/xxxController.ts`)**
    - **職責**：對齊監聽事件大類，專責 Discord Gateway 事件監聽或多子指令分發。解析 Discord 交互上下文 (`Interaction`/`Message`)，呼叫 Service 業務邏輯，並執行 `.reply()` / `.followUp()` 交互回應。
    - **全域異步保護**：非同步事件處置**必須**使用 `discordEventHandler` 裝飾器包裹。
-   - **⚠️ 禁用行為**：禁止直接存取 Supabase DB，禁止直連外部 API，禁止複雜業務運算。
+   - **⚠️ 禁用行為**：禁止直接存取 Supabase DB，禁止直連外部 API，禁止複雜業務運算，禁止直接組裝 UI Builder。
 
 3. **業務邏輯層 - Service (`src/services/xxxService.ts`)**
    - **職責**：對齊指令/業務大類，承載核心業務運算、分散式鎖 (`runWithLock`)、Redis 快取與 DTO 資料計算。
-   - **UI 封裝許可**：允許且鼓勵提供 `getXxxEmbed(...)` UI 工廠方法，將業務結果組裝為 `EmbedBuilder` 回傳，以化簡 Controller 的程式碼。
+   - **UI 封裝許可**：允許且鼓勵提供 `getXxxEmbed(...)` 或 `createXxxPayload(...)` UI 工廠方法，將業務結果組裝為 `EmbedBuilder` 或 Payload 回傳，以化簡 Controller 的程式碼。
 
 4. **資料存取層 - Repository (`src/repositories/xxxRepository.ts`)**
    - **職責**：對齊資料表或資料來源名稱。
    - **DB 與外部 API**：所有 Supabase DB 存取與外部第三方 HTTP API (Webhook, 外部服務) **必須**經過 Repository 封裝，隔離外部依賴。
+   - **快取與鎖調用防線**：快取 (Cache) 與分散式鎖 (Lock) 操作必須透由 Service 呼叫公開的 `cacheRepository` / `lockRepository`，嚴禁 DAL 層私自繞過 Service 操作快取或鎖。
    - **Discord API 封裝原則**：普通直接互動直接處理；僅在需要跨模組封裝、複雜批次查詢或自訂快取時封裝為 Repository，防範過度設計。
 
 ---
@@ -92,7 +94,7 @@ trigger: always_on
 
 3. **開發規範與邊界調整 (Development Rules Change)**：
    - **更新檔案**：`docs/development_standards.md` 與 `.agents/rules/ARCHITECTURE.md`
-   - **說明**：當調整 TypeScript 型別規範、DAL / Service 邊界或錯誤處置流程時，兩份規範檔案必須同步維持一致。
+   - **說明**：當調整 TypeScript 型別規範、DAL / Service 邊界或錯誤處置流程時，兩份規範檔案必須同步維護一致。
 
 4. **特定業務模組與營運手冊變更 (Module / Business Guides)**：
    - **更新檔案**：`docs/` 下對應模組文件（如 `docs/ROLE_MANAGEMENT_GUIDE.md`、`docs/DISCORD_RATE_LIMIT_GUIDE.md` 等）
@@ -106,19 +108,35 @@ trigger: always_on
 
 ### 階段一：委派子 Agent 執行架構審查 (Subagent Code Review)
 
-在跑單機編譯前，主 Agent **必須使用 `invoke_subagent` 委派專用審查 Agent** (`Role: Architecture Reviewer`, `Model: pro` 或 `inherit`)，對本次變更 (`git diff`) 對照本規範進行審查。
+在跑單機編譯前，主 Agent **必須使用 `invoke_subagent` 委派專用審查 Agent** (`Role: Architecture Reviewer`, `Model: pro` 或 `inherit`)。
 
-審查 Agent 必須檢查以下項目並產出報告：
-- [ ] **三層架構與對齊命名**：
-  - Controller 對齊監聽事件大類，Command/Service 對齊指令大類，Repository 對齊資料表/資料來源。
-  - Controller/Command 未直接存取 DB 或直連外部 API。
-- [ ] **Interface & Type 集中管理**：邏輯檔案中無私自手刻 Interface/Type，均集中於 `src/models/`。
-- [ ] **防重複造輪子 (Utils Check)**：檢查是否有重複實作 `src/utils/` 已存在的現成輪子（例如：`permissionGuard`, `baseResponse`, `redisKeys`, `discordEventHandler`, `appError` 等）。
-- [ ] **零硬編碼 ID 與 Redis Keys**：ID 均讀自 config，Key 均透過 `RedisKeys`。
-- [ ] **禁止輸出 Emoji 檢核**：程式碼、訊息回應與 Embed 卡片中皆無 Emoji 字符。
-- [ ] **禁止無參數全量 `guild.members.fetch()`**：絕無直接呼叫原生 `guild.members.fetch()`，全服成員查詢均統一透過 DAL `discordRepository.getGuildMembers(guild)`。
-- [ ] **非同步事件保護**：所有事件控制器均由 `discordEventHandler` 包覆。
-- [ ] **文件同步維護檢核**：若異動涉及架構、新控制器或開發規範調整，是否已同步更新 `README.md` 或 `docs/` 下對應文檔。
+> ⚠️ **硬性紅線（禁止自創審查 Prompt）**：
+> 主 Agent 在調用 `invoke_subagent` 時，**嚴禁自行編撰對自己有利的寬鬆 Prompt**！必須**完整複製**下方的【固定標準架構審查 Prompt】作為子 Agent 的任務指令：
+
+#### 📋 固定標準架構審查 Prompt 範本 (Standardized Review Prompt)
+
+```text
+你現在是嚴格的專案架構審查員 (Architecture Reviewer)。請以「挑錯與審查漏洞」為目標，對本次變更 (git diff) 進行以下 16 大硬性防線的嚴格稽核：
+
+1. [ ] Controller / Command 職責過重與直連違規：Command/Controller 內部是否直接組裝了 UI Builder、Payload、定義業務文案、直接存取 DB/Redis 或直連外部 API？（若有，直接判失敗！）
+2. [ ] BLL Service 封裝檢查：業務計算與 UI Payload 工廠方法是否完全封裝在 Service 中？
+3. [ ] 檔案命名與對齊規範：Controller 對齊監聽事件大類，Command/Service 對齊指令大類，Repository 對齊資料表/資料來源名稱。
+4. [ ] Interface & Type 集中管理：邏輯檔案中是否無私自手刻 Interface/Type，均集中收納於 src/models/？
+5. [ ] 存取修飾子與封裝規範：private / public / protected 修飾子使用是否正確無誤用？私有方法與屬性是否標記為 private？
+6. [ ] 防重複造輪子 (Utils Check)：檢查是否有重複實作 src/utils/ 已存在的現成輪子（例如：permissionGuard, baseResponse, redisKeys, discordEventHandler, appError 等）？
+7. [ ] 零硬編碼 ID 與 Redis Keys：ID 是否均讀自 .env/config，Redis Key 是否均統一透過 RedisKeys 工廠宣告？
+8. [ ] 非同步事件保護：所有事件控制器是否均由 discordEventHandler 裝飾器包覆保護？
+9. [ ] 冗餘程式碼與收斂：是否有可收斂的重複邏輯或冗餘程式碼？
+10. [ ] 效能與最佳化：從效能考量，非同步 (async/await)、Promise 併發 (Promise.all) 與記憶體處理是否已最佳化？
+11. [ ] 權限衛哨 (PermissionGuard)：是否有可使用的 PermissionGuard 卻遺漏未呼叫？
+12. [ ] 全服成員拉取防線：是否跳過了 DAL 層快取 discordRepository.getGuildMembers(guild)，而直接呼叫了原生 guild.members.fetch()？
+13. [ ] DAL 快取與分散式鎖防線：是否有私自從 DAL 層調用快取或分散式鎖，而沒有透過公開的 Service 操作？
+14. [ ] JSDoc 註解完整度：每個函數定義、類別、介面 (Interface) 與型別 (Type) 是否皆已撰寫完整 JSDoc 註解說明？
+15. [ ] 禁止輸出 Emoji (No Emoji Policy)：程式碼、文案、Embed 卡片與按鈕中是否完全無 Emoji 字符？
+16. [ ] 文件同步維護檢核：若異動涉及架構、新控制器或開發規範調整，是否已同步更新 README.md 或 docs/ 下對應文檔？
+
+請逐項給出判斷說明。唯有當上述 16 項完全通過時，方可給出「✅ 架構審查通過」結論。若有任何一項不符合，請直接給出「❌ 架構審查不通過」並詳細列出違規點。
+```
 
 **通過條件**：唯有當審查子 Agent 回報 `✅ 架構審查通過` 時，方可進入階段二。
 

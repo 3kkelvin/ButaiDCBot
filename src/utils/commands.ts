@@ -8,6 +8,7 @@ import { roleDividerCommand } from '../controllers/roleDividerCommand';
 import { roleCommand } from '../controllers/roleCommand';
 import { timeoutCommand } from '../controllers/timeoutCommand';
 import { threadsCommand } from '../controllers/threadsCommand';
+import { pollCommand } from '../controllers/pollCommand';
 
 /**
  * 系統 Slash 指令通用介面
@@ -34,6 +35,7 @@ export const commandsList: ICommand[] = [
   roleCommand as ICommand,
   timeoutCommand as ICommand,
   threadsCommand as ICommand,
+  pollCommand as ICommand,
 ];
 
 // 將指令轉化為以 name 為 Key 的 Map，方便 bot.ts 查詢路由
