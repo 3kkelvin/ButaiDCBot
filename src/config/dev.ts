@@ -36,8 +36,8 @@ export const devConfig = {
     },
     {
       operatorRoleId: '1527348833057771554', // 臺灣頻道管理 ID
-      allowedRoleIds: ['1527348832902316135'], // 可給予/移除：臺灣公民
-      description: '臺灣頻道管理手動給予/移除臺灣公民身分組權限',
+      allowedRoleIds: ['1527348832902316135', '1527348832902316140'], // 可給予/移除：臺灣公民、對台灣區特殊開放
+      description: '臺灣頻道管理手動給予/移除臺灣公民、對台灣區特殊開放身分組權限',
     },
   ] as ManualRoleRule[],
   threadAutoClose: {
