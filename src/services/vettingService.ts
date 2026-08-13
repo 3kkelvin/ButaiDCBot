@@ -387,6 +387,11 @@ export class VettingService {
           if (isExpired) {
             let isFinalApproved = false;
 
+            // 若討論串目前處於歸檔狀態，需先解除歸檔以允許修改標題與發送訊息
+            if (thread.archived) {
+              await thread.setArchived(false).catch(() => null);
+            }
+
             // 僅對確認逾期的貼文抓取卡片 Message 更新狀態與停用按鈕
             const messages = await thread.messages.fetch({ limit: 10 }).catch(() => null);
             if (messages) {
