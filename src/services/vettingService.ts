@@ -8,6 +8,7 @@ import {
   ForumChannel,
   GuildMember,
   Message,
+  SnowflakeUtil,
   ThreadChannel,
 } from 'discord.js';
 import { config } from '../config';
@@ -273,7 +274,11 @@ export class VettingService {
       .setTimestamp();
 
     if (isExpired) {
-      embed.setDescription('**審核已通過**');
+      if (isPassed) {
+        embed.setDescription('**審核已通過**');
+      } else {
+        embed.setDescription('**審核已逾期**');
+      }
     } else if (isPassed) {
       embed.setDescription('**審核已通過**（審核員仍可於期限內改投）');
     }
@@ -364,14 +369,19 @@ export class VettingService {
         const channel = await client.channels.fetch(forumId).catch(() => null);
         if (!channel || !(channel instanceof ForumChannel)) continue;
 
+        // 同時獲取活躍 (Active) 與已歸檔 (Archived) 的討論串
         const activeThreads = await channel.threads.fetchActive();
+        const archivedThreads = await channel.threads.fetchArchived({ type: 'public', limit: 100 }).catch(() => null);
 
-        for (const [, thread] of activeThreads.threads) {
+        const allThreads = [...activeThreads.threads.values(), ...(archivedThreads ? archivedThreads.threads.values() : [])];
+
+        for (const thread of allThreads) {
           if (!thread.name.includes('[審核中]')) {
             continue;
           }
 
-          const createdTimestamp = thread.createdTimestamp || Date.now();
+          // 使用 SnowflakeUtil 解構 ID 獲取 100% 準確的建立時間戳
+          const createdTimestamp = thread.createdTimestamp || Number(SnowflakeUtil.deconstruct(thread.id).timestamp);
           const isExpired = Date.now() - createdTimestamp > expireTimeoutMs;
 
           if (isExpired) {
