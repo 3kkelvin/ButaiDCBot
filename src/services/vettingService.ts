@@ -393,7 +393,7 @@ export class VettingService {
             }
 
             // 僅對確認逾期的貼文抓取卡片 Message 更新狀態與停用按鈕
-            const messages = await thread.messages.fetch({ limit: 10 }).catch(() => null);
+            const messages = await thread.messages.fetch({ after: thread.id, limit: 10 }).catch(() => null);
             if (messages) {
               const cardMessage = messages.find((m) => m.embeds.length > 0 && m.author.id === client.user?.id);
               if (cardMessage) {
