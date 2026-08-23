@@ -313,6 +313,9 @@ export class VettingService {
     const type: VettingType = parentId === config.vetting.officialVettingForum ? 'official' : 'voter';
     const requiredApprovals = type === 'official' ? 1 : config.vetting.voterRequiredApprovals;
 
+    const defaultCreatedAt = thread.createdTimestamp || Number(SnowflakeUtil.deconstruct(thread.id).timestamp);
+    const defaultExpireAt = defaultCreatedAt + config.vetting.reviewTimeoutDays * 86400 * 1000;
+
     const embed = message.embeds[0];
     if (!embed) {
       return {
@@ -324,8 +327,8 @@ export class VettingService {
         rejecters: [],
         score: 0,
         requiredApprovals,
-        createdAt: Date.now(),
-        expireAt: Date.now() + config.vetting.reviewTimeoutDays * 86400 * 1000,
+        createdAt: defaultCreatedAt,
+        expireAt: defaultExpireAt,
       };
     }
 
@@ -341,6 +344,11 @@ export class VettingService {
     // 直接由名單列表重新計算權威票數 (贊成數 - 拒絕數)
     const score = approvers.length - rejecters.length;
 
+    // 從 Embed「期限」欄位解析原始 Unix Timestamp (<t:123456789:R>)，防止每次點擊按鈕重新順延時間
+    const expireStr = getFieldVal('期限');
+    const expireMatch = expireStr.match(/\d+/);
+    const expireAt = expireMatch ? Number(expireMatch[0]) * 1000 : defaultExpireAt;
+
     return {
       threadId: thread.id,
       guildId: thread.guildId,
@@ -350,8 +358,8 @@ export class VettingService {
       rejecters,
       score,
       requiredApprovals,
-      createdAt: Date.now(),
-      expireAt: Date.now() + config.vetting.reviewTimeoutDays * 86400 * 1000,
+      createdAt: defaultCreatedAt,
+      expireAt,
     };
   }
 
