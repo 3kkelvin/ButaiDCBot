@@ -5,6 +5,9 @@ import { HELP_BUTTON_PREFIX } from '../models/help/helpDTO';
 import { vettingService } from '../services/vettingService';
 import { VETTING_BUTTON_PREFIX } from '../models/vetting/vettingDTO';
 
+import { PURGE_BUTTON_PREFIX } from '../models/purge/purgeDTO';
+import { purgeService } from '../services/purgeService';
+
 /**
  * 監聽並處置 Discord 按鈕互動事件 (Events.InteractionCreate)
  * 負責將按鈕點擊路由分發給對應的服務層或分流函式
@@ -27,6 +30,10 @@ export const setupButtonController = (client: Client) => {
 
         case VETTING_BUTTON_PREFIX:
           await vettingService.handleButtonInteraction(interaction);
+          break;
+
+        case PURGE_BUTTON_PREFIX:
+          await purgeService.handleButtonInteraction(interaction);
           break;
 
         default:

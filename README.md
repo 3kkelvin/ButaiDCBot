@@ -177,3 +177,13 @@
      npx ts-node scripts/previewHelp.ts         # 檢視全系統大中小類統計與展平說明
      npx ts-node scripts/previewHelp.ts role    # 檢視指定 role 指令族說明
      ```
+
+5. **`/purge` 批次歷史發言清理系統 (技術公務員專用)**
+   - **指令格式**：`/purge user_id:<Snowflake> start_date:<YYYY-MM-DD> end_date:<YYYY-MM-DD> [channel:<文字頻道>]`
+   - **權限控制**：僅限技術公務員 (`config.roles.tech`) 執行與中斷。
+   - **核心特性**：
+     - **相容不在群成員**：使用純數字 Snowflake User ID 接收參數，即使該成員已退群亦能精準清除。
+     - **Snowflake 時間跳轉定位**：利用 Discord Snowflake 毫秒時間戳換算，直接定位區間起始訊息，避免暴力遍歷兩百萬條歷史訊息。
+     - **頻道生命週期剪枝**：自動排除建立時間晚於結束時間或最後發言時間早於起始時間的頻道，大幅縮減 API 請求。
+     - **即時快取釋放 (0 記憶體堆積)**：每批次拉取訊息後立即從 `channel.messages.cache` 移除，杜絕 Node.js Heap 記憶體洩漏。
+     - **可隨時中斷**：互動面板內嵌 `[中斷清理任務]` 按鈕，點擊即標記取消旗標安全退出並結算清理統計。
