@@ -2,12 +2,13 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { pollService } from '../services/pollService';
 import { BaseResponse } from '../utils/baseResponse';
 import { PermissionGuard } from '../utils/permissionGuard';
+import type { ICommand } from '../utils/commands';
 
 /**
  * /poll 表現層指令控制器
  * 職責：解析 Discord 指令觸發，呼叫 PermissionGuard 衛哨與 pollService (BLL) 取得 Payload 並發送回應
  */
-export const pollCommand = {
+export const pollCommand: ICommand = {
   data: new SlashCommandBuilder()
     .setName('poll')
     .setDescription('發起簡易投票'),
