@@ -131,7 +131,9 @@ import { setupMemberController } from './controllers/memberController'; // 💡 
 // 註冊常駐監聽控制器自治 setup
 setupInteractionController(client);
 setupMessageController(client);
-setupMemberController(client); // 💡 一鍵自治掛載
+setupGuildMemberUpdateController(client);
+setupThreadCreateController(client); // 掛載論壇討論串建立監聽
+setupGuildMemberAddController(client); // 掛載新成員加入歡迎監聽
 ```
 
 ---
@@ -179,3 +181,26 @@ flowchart TD
     Phase3 --> Phase4
 ```
 
+## 8. 自動化功能模組 (Automated Modules)
+
+### A. 論壇發帖自動投票與通知模組 (/forum poll)
+* **指令**：`/forum poll (forum: role: ping: true/false)` (僅限管理者/技術公務員)
+* **流程**：
+  1. 監聽 `Events.ThreadCreate`，當指定論壇頻道建立新貼文時觸發。
+  2. 於新討論串內自動發起投票（內容與時限與 `/poll` 一致：48小時、支持/反對/棄權）。
+  3. 依據設定私訊通知指定身分組的所有成員（透過 DAL 快取 `discordRepository.getGuildMembers`）。
+  4. 當 `ping: true` 時，私訊附帶「決定關閉通知 (永不打擾)」按鈕；若點擊則於 Redis 標記永不打擾，後續不再打擾；當 `ping: false` 時則移除該按鈕。
+
+### B. 新成員加入自動歡迎模組 (/welcome)
+* **指令**：`/welcome (channel: context:)` (僅限管理者/技術公務員)
+* **流程**：
+  1. 監聽 `Events.GuildMemberAdd`，新成員加入時於指定文字頻道發送歡迎卡片並直接 @ 該成員。
+  2. 附帶「打個招呼」按鈕，其他成員點擊後機器人將以文字訊息公開發布打招呼內容。
+  3. 歡迎訊息設定 3 天有效時限，透過 Redis Sorted Set 排程紀錄，由排程中心每 10 分鐘自動清理超過 3 天的訊息。
+
+### C. 客服工單系統模組 (/ticket channel)
+* **指令**：`/ticket channel (channel: roll: [roll_2 ~ roll_5])` (僅限管理者/技術公務員)
+* **流程**：
+  1. 於指定文字頻道部署工單申請面板（標題：「建立工单」，內容：「有任何需求，意见，投诉，询问都可以在这里申请」，按鈕：「申请」）。
+  2. 使用者點擊「申请」按鈕時，透過分散式鎖防止連點，自動建立專屬私人子區 (Private Thread)，並於子區內提及開票人與指定的身分組。
+  3. 進入子區後，僅有指定身分組人員或管理者有權限點擊「關閉工單」按鈕，執行將開票人移出子區、發送結案記錄並歸檔鎖定子區。

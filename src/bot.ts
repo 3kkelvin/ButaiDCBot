@@ -1,5 +1,5 @@
 import './utils/otel'; // 必須在第一行載入，以啟用 OTel 自動插樁
-import { Client, GatewayIntentBits, Events } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Partials } from 'discord.js';
 import dotenv from 'dotenv';
 import { commandsMap } from './utils/commands';
 import { handleBotInit } from './utils/botInit';
@@ -8,6 +8,8 @@ import { setupButtonController } from './controllers/buttonController';
 import { setupMessageController } from './controllers/messageController';
 import { setupGuildMemberUpdateController } from './controllers/guildMemberUpdateController';
 import { setupThreadController } from './controllers/threadController';
+import { setupThreadCreateController } from './controllers/threadCreateController';
+import { setupGuildMemberAddController } from './controllers/guildMemberAddController';
 import dns from 'dns';
 
 // 解決 Docker 容器中預設不支援 IPv6 導致的 ENETUNREACH 錯誤，強制全域優先連線 IPv4
@@ -29,7 +31,9 @@ export const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.DirectMessages,
   ],
+  partials: [Partials.Channel, Partials.Message],
 });
 
 // 1. 當 Ready 時，執行一次性初始化與指令同步註冊 (實際觸發時機會在3. 登入 Discord 之後)
@@ -41,6 +45,8 @@ setupButtonController(client);
 setupMessageController(client);
 setupGuildMemberUpdateController(client);
 setupThreadController(client);
+setupThreadCreateController(client);
+setupGuildMemberAddController(client);
 
 // 3. 登入 Discord
 client.login(TOKEN).catch((err) => {

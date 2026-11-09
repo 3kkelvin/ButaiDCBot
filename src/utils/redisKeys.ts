@@ -29,6 +29,14 @@ export const RedisKeys = {
     vettingUser: (userId: string) => `vetting:user:${userId}`,
     /** 身分組清洗操作鎖 */
     clearRole: (guildId: string, roleId: string) => `clear_role:${guildId}:${roleId}`,
+    /** 工單建立防連點鎖 */
+    ticketCreate: (userId: string) => `ticket_create:${userId}`,
+    /** 工單關閉互斥鎖 */
+    ticketClose: (threadId: string) => `ticket_close:${threadId}`,
+    /** 論壇新帖發起投票與通知互斥鎖 */
+    forumPollThread: (threadId: string) => `forum_poll_thread:${threadId}`,
+    /** 歡迎訊息打招呼防連點鎖 */
+    welcomeGreet: (userId: string) => `welcome_greet:${userId}`,
   },
 
   /**
@@ -47,6 +55,16 @@ export const RedisKeys = {
     threadSetting: (threadId: string) => `thread_setting:${threadId}`,
     /** 討論串城堡法全域有值白名單 Set Key */
     activeCastleThreadsSet: () => 'active_castle_threads',
+    /** 論壇發帖投票與通知配置 Key */
+    forumPollConfig: (forumId: string) => `forum_poll:config:${forumId}`,
+    /** 論壇通知用戶永不打擾 Key */
+    forumPollOptOut: (userId: string) => `forum_poll:optout:${userId}`,
+    /** 伺服器歡迎訊息配置 Key */
+    welcomeConfig: (guildId: string) => `welcome:config:${guildId}`,
+    /** 工單面板與身分組配置 Key */
+    ticketConfig: (guildId: string, channelId: string) => `ticket:config:${guildId}:${channelId}`,
+    /** 工單私人子區記錄 Key */
+    ticketThread: (threadId: string) => `ticket:thread:${threadId}`,
   },
 
   /**
@@ -55,5 +73,13 @@ export const RedisKeys = {
   Category: {
     /** 討論串城堡法設定類別 */
     threadSetting: 'thread_setting',
+  },
+
+  /**
+   * 資料持久結構命名空間 (Lists / Sets / Sorted Sets)
+   */
+  Data: {
+    /** 待自動刪除的歡迎訊息 Sorted Set Key */
+    welcomePendingDeletions: () => 'welcome:pending_deletions',
   },
 };

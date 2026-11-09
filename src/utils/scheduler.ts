@@ -6,6 +6,7 @@ import { roleService } from '../services/roleService';
 import { threadService } from '../services/threadService';
 import timeoutService from '../services/timeoutService';
 import { vettingService } from '../services/vettingService';
+import { welcomeService } from '../services/welcomeService';
 
 /**
  * 任務配置介面
@@ -50,6 +51,13 @@ const jobs: JobConfig[] = [
     cron: '0 * * * *', // 每小時整點執行一次
     action: async () => {
       await vettingService.scanAndExpireThreads(client);
+    },
+  },
+  {
+    name: 'Welcome Message Auto-Cleanup (每 10 分鐘自動清理超過 3 天的歡迎訊息)',
+    cron: '*/10 * * * *',
+    action: async () => {
+      await welcomeService.cleanupExpiredMessages(client);
     },
   },
 ];
