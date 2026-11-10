@@ -31,7 +31,11 @@ export class TicketService {
    * @param channel 目標文字頻道
    * @returns 成功配置之 Embed 回應卡片
    */
-  public async setupTicketChannel(dto: ITicketSetupDTO, guild: Guild, channel: TextChannel): Promise<EmbedBuilder> {
+  public async setupTicketChannel(
+    dto: ITicketSetupDTO,
+    guild: Guild,
+    channel: TextChannel
+  ): Promise<EmbedBuilder> {
     if (channel.type !== ChannelType.GuildText) {
       throw new AppError('工單頻道必須為伺服器文字頻道 (GuildText)！', 400);
     }
@@ -49,7 +53,10 @@ export class TicketService {
 
     // 2. 組裝申請按鈕
     const panelRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(`ticket_apply_${channel.id}`).setLabel('申请').setStyle(ButtonStyle.Primary)
+      new ButtonBuilder()
+        .setCustomId(`ticket_apply_${channel.id}`)
+        .setLabel('申请')
+        .setStyle(ButtonStyle.Primary)
     );
 
     // 3. 發送面板至該頻道
@@ -90,6 +97,8 @@ export class TicketService {
     if (!guild || !channel || !(channel instanceof TextChannel)) {
       throw new AppError('無效的工單頻道操作！', 400);
     }
+
+    await interaction.deferReply({ ephemeral: true });
 
     // 防連點互斥鎖
     const lockKey = RedisKeys.Lock.ticketCreate(interaction.user.id);
@@ -155,7 +164,11 @@ export class TicketService {
         });
 
         // 6. 隱密通知開票人跳轉至子區 (使用 BaseResponse 統一處置)
-        await BaseResponse.send(interaction, `您的工單已建立！請前往私人子區諮詢：<#${thread.id}>`, true);
+        await BaseResponse.send(
+          interaction,
+          `您的工單已建立！請前往私人子區諮詢：<#${thread.id}>`,
+          true
+        );
       }
     );
   }
@@ -170,6 +183,8 @@ export class TicketService {
     if (!thread || !thread.isThread()) {
       throw new AppError('此操作僅能在工單子區內執行！', 400);
     }
+
+    await interaction.deferReply({ ephemeral: true });
 
     // 解析 CustomId: ticket_close_{threadId}_{creatorId}
     const parts = interaction.customId.split('_');
@@ -208,15 +223,15 @@ export class TicketService {
         // 4. 發送關閉紀錄訊息
         await thread.send(`工單已由 <@${interaction.user.id}> 關閉，開票人已被移出子區。`);
 
-        // 5. 鎖定並歸檔子區
-        await thread.setLocked(true).catch(() => {});
-        await thread.setArchived(true).catch(() => {});
+        // 5. 在子區封存前回覆點擊者
+        await BaseResponse.send(interaction, '工單已關閉並歸檔。', true);
 
         // 6. 清理記錄
         await ticketRepository.deleteThreadRecord(threadId);
 
-        // 7. 回覆點擊者 (使用 BaseResponse 統一處置)
-        await BaseResponse.send(interaction, '工單已關閉並歸檔。', true);
+        // 7. 最後鎖定並歸檔子區
+        await thread.setLocked(true).catch(() => {});
+        await thread.setArchived(true).catch(() => {});
       }
     );
   }
