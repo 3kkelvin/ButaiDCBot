@@ -8,6 +8,10 @@
 - **快取與分散式鎖**：Redis (ioredis) — 提供 Sub-millisecond 高速快取與原子鎖 (SET NX PX)
 - **資料庫**：Supabase (PostgreSQL) — 本專案中 DB 屬於邊緣輔助角色，不儲存使用者資料
 - **架構模式**：嚴格的三層式架構 (Presentation Layer -> Service Layer -> Data Access Layer)
+- **主要自動化功能**：
+  - `/forum poll`：論壇發帖自動發起投票（支持/反對/棄權）與指定身分組私訊通知（支援永不打擾切換）
+  - `/welcome`：新成員加入時於指定頻道 @通知，提供打招呼互動按鈕，訊息 3 天到期自動清理
+  - `/ticket channel`：工單系統申請面板，點擊建立私人子區並通知相關身分組與開票人，支援客服結案並移出成員
 
 ---
 

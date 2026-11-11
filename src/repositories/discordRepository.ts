@@ -64,4 +64,5 @@ export class DiscordRepository {
   }
 }
 
-export default new DiscordRepository();
+export const discordRepository = new DiscordRepository();
+export default discordRepository;

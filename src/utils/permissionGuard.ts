@@ -1,12 +1,13 @@
 import {
-  AutocompleteInteraction,
   ChatInputCommandInteraction,
   GuildMember,
   Guild,
   Interaction,
   APIInteractionGuildMember,
+  PermissionFlagsBits,
 } from 'discord.js';
 import { AppError } from './appError';
+import { config } from '../config';
 
 /**
  * 高階權限守衛工具
@@ -64,6 +65,27 @@ export class PermissionGuard {
     const isAllowed = this.hasRole(target, requiredRoles);
     if (!isAllowed) {
       throw new AppError(customErrorMessage, 401);
+    }
+  }
+
+  /**
+   * 檢查是否具備管理員權限 (ManageGuild / Administrator) 或技術公務員身分組
+   * 1 行守衛：無權限直接拋出 403 AppError
+   *
+   * @param interaction Discord 互動事件
+   * @param customErrorMessage 權限不足時的警示訊息 (可選)
+   */
+  static requireManager(
+    interaction: ChatInputCommandInteraction | Interaction,
+    customErrorMessage: string = '僅限管理者權限或技術公務員使用此指令！'
+  ): void {
+    const isManager =
+      interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) ||
+      interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ||
+      this.hasRole(interaction, config.roles.tech);
+
+    if (!isManager) {
+      throw new AppError(customErrorMessage, 403);
     }
   }
 
