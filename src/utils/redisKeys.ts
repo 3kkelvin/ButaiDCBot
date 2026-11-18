@@ -81,5 +81,9 @@ export const RedisKeys = {
   Data: {
     /** 待自動刪除的歡迎訊息 Sorted Set Key */
     welcomePendingDeletions: () => 'welcome:pending_deletions',
+    /** 論壇新貼文私訊流控發送隊列 List Key (每 5 分鐘發送 20 人) */
+    forumDmQueue: () => 'forum_poll:dm_queue',
+    /** 已向新成員打過招呼之使用者 Set Key (限制每人僅能按一次) */
+    welcomeGreetedUsers: (targetMemberId: string) => `welcome:greeted:${targetMemberId}`,
   },
 };

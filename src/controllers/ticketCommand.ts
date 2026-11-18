@@ -9,6 +9,7 @@ import { ICommand } from '../utils/commands';
 import { ticketService } from '../services/ticketService';
 import { BaseResponse } from '../utils/baseResponse';
 import { PermissionGuard } from '../utils/permissionGuard';
+import { TicketAction } from '../models/ticket/ticketDTO';
 
 /**
  * /ticket 表現層指令控制器
@@ -29,11 +30,21 @@ export const ticketCommand: ICommand = {
             .addChannelTypes(ChannelType.GuildText)
             .setRequired(true)
         )
+        .addStringOption((option) =>
+          option
+            .setName('action')
+            .setDescription('操作動作 (on: 啟用/覆蓋 ; off: 完全關閉)')
+            .setRequired(true)
+            .addChoices(
+              { name: '啟用/覆蓋 (on)', value: 'on' },
+              { name: '關閉 (off)', value: 'off' }
+            )
+        )
         .addRoleOption((option) =>
           option
             .setName('roll')
-            .setDescription('接收工單通知的指定身分組 (主要)')
-            .setRequired(true)
+            .setDescription('接收工單通知的指定身分組 (主要，action 為 on 時生效)')
+            .setRequired(false)
         )
         .addRoleOption((option) =>
           option
@@ -75,11 +86,14 @@ export const ticketCommand: ICommand = {
     switch (subcommand) {
       case 'channel': {
         const channel = interaction.options.getChannel('channel', true) as TextChannel;
+        const action = interaction.options.getString('action', true) as TicketAction;
 
         // 收集所有填寫的身分組 (roll, roll_2 ~ roll_5)
         const roleIds: string[] = [];
-        const primaryRole = interaction.options.getRole('roll', true);
-        roleIds.push(primaryRole.id);
+        const primaryRole = interaction.options.getRole('roll');
+        if (primaryRole) {
+          roleIds.push(primaryRole.id);
+        }
 
         for (let i = 2; i <= 5; i++) {
           const extraRole = interaction.options.getRole(`roll_${i}`);
@@ -94,7 +108,8 @@ export const ticketCommand: ICommand = {
           {
             guildId: guild.id,
             channelId: channel.id,
-            roleIds,
+            action,
+            roleIds: roleIds.length > 0 ? roleIds : undefined,
           },
           guild,
           channel

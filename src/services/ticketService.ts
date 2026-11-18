@@ -24,9 +24,9 @@ import { ITicketSetupDTO } from '../models/ticket/ticketDTO';
  */
 export class TicketService {
   /**
-   * 設定指定頻道為工單面板頻道並發送申請 Embed 與按鈕
+   * 設定指定頻道為工單面板頻道或完全停用該頻道工單功能
    *
-   * @param dto 工單面板配置參數
+   * @param dto 工單面板配置參數 (包含 guildId, channelId, action, roleIds)
    * @param guild Discord 伺服器實例
    * @param channel 目標文字頻道
    * @returns 成功配置之 Embed 回應卡片
@@ -40,18 +40,30 @@ export class TicketService {
       throw new AppError('工單頻道必須為伺服器文字頻道 (GuildText)！', 400);
     }
 
-    if (dto.roleIds.length === 0) {
-      throw new AppError('必須指定至少一個工單處理身分組！', 400);
+    // 1. 處理完全停用動作 (action === 'off')
+    if (dto.action === 'off') {
+      await ticketRepository.deleteConfig(dto.guildId, dto.channelId);
+
+      return new EmbedBuilder()
+        .setTitle('工單功能已停用')
+        .setColor(0xe74c3c)
+        .setDescription(`已完全停用頻道 <#${channel.id}> 的工單申請功能。`)
+        .setTimestamp();
     }
 
-    // 1. 組裝面板 Embed (完全依據需求文案且無 Emoji)
+    // 2. 處理啟用/覆蓋動作 (action === 'on')
+    if (!dto.roleIds || dto.roleIds.length === 0) {
+      throw new AppError('啟用工單功能時必須指定至少一個工單處理身分組 (roll)！', 400);
+    }
+
+    // 組裝面板 Embed (完全依據需求文案且無 Emoji)
     const panelEmbed = new EmbedBuilder()
       .setTitle('建立工单')
       .setDescription('有任何需求，意见，投诉，询问都可以在这里申请')
       .setColor(0x3498db)
       .setFooter({ text: '點擊下方按鈕以開啟私人客服諮詢子區' });
 
-    // 2. 組裝申請按鈕
+    // 組裝申請按鈕
     const panelRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(`ticket_apply_${channel.id}`)
@@ -59,16 +71,17 @@ export class TicketService {
         .setStyle(ButtonStyle.Primary)
     );
 
-    // 3. 發送面板至該頻道
+    // 發送面板至該頻道
     await channel.send({
       embeds: [panelEmbed],
       components: [panelRow],
     });
 
-    // 4. 持久化保存工單頻道與身分組配置
+    // 持久化保存工單頻道與身分組配置 (覆蓋原有設定)
     await ticketRepository.saveConfig({
       guildId: guild.id,
       channelId: channel.id,
+      enabled: true,
       roleIds: dto.roleIds,
       updatedAt: new Date().toISOString(),
     });
@@ -76,12 +89,15 @@ export class TicketService {
     return new EmbedBuilder()
       .setTitle('工單面板設定成功')
       .setColor(0x3498db)
-      .setDescription(`已於 <#${channel.id}> 成功部署工單申請面板！`)
-      .addFields({
-        name: '管理與通知身分組',
-        value: dto.roleIds.map((id) => `<@&${id}>`).join(' '),
-        inline: false,
-      })
+      .setDescription(`已於 <#${channel.id}> 成功部署工單申請面板！(已覆蓋原有設定)`)
+      .addFields(
+        { name: '運行狀態', value: '啟用 (on)', inline: true },
+        {
+          name: '管理與通知身分組',
+          value: dto.roleIds.map((id) => `<@&${id}>`).join(' '),
+          inline: false,
+        }
+      )
       .setTimestamp();
   }
 
@@ -98,7 +114,11 @@ export class TicketService {
       throw new AppError('無效的工單頻道操作！', 400);
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    // 取得工單配置，若已停用或未配置則拒絕申請
+    const ticketConfig = await ticketRepository.getConfig(guild.id, channel.id);
+    if (!ticketConfig || !ticketConfig.enabled) {
+      throw new AppError('此頻道的工單功能目前已關閉！', 400);
+    }
 
     // 防連點互斥鎖
     const lockKey = RedisKeys.Lock.ticketCreate(interaction.user.id);
@@ -109,11 +129,9 @@ export class TicketService {
         releaseOnSuccess: true,
       },
       async () => {
-        // 1. 取得工單配置
-        const ticketConfig = await ticketRepository.getConfig(guild.id, channel.id);
-        const roleIds = ticketConfig?.roleIds || [];
+        const roleIds = ticketConfig.roleIds || [];
 
-        // 2. 建立私人子區 (Private Thread)
+        // 1. 建立私人子區 (Private Thread)
         const timestampSuffix = Date.now().toString().slice(-4);
         const threadName = `工單-${interaction.user.username}-${timestampSuffix}`;
 
@@ -124,10 +142,10 @@ export class TicketService {
           invitable: false,
         });
 
-        // 3. 將開票人加入該私人子區
+        // 2. 將開票人加入該私人子區
         await thread.members.add(interaction.user.id);
 
-        // 4. 在子區內艾特通知指定身分組和開票人
+        // 3. 在子區內艾特通知指定身分組和開票人
         const roleMentions = roleIds.map((id) => `<@&${id}>`).join(' ');
         const notificationContent = `<@${interaction.user.id}> ${roleMentions}`.trim();
 
@@ -153,7 +171,7 @@ export class TicketService {
           components: [closeRow],
         });
 
-        // 5. 儲存工單子區記錄
+        // 4. 儲存工單子區記錄
         await ticketRepository.saveThreadRecord(thread.id, {
           guildId: guild.id,
           channelId: channel.id,
@@ -163,7 +181,7 @@ export class TicketService {
           createdAt: new Date().toISOString(),
         });
 
-        // 6. 隱密通知開票人跳轉至子區 (使用 BaseResponse 統一處置)
+        // 5. 隱密通知開票人跳轉至子區 (使用 BaseResponse 統一處置)
         await BaseResponse.send(
           interaction,
           `您的工單已建立！請前往私人子區諮詢：<#${thread.id}>`,
@@ -183,8 +201,6 @@ export class TicketService {
     if (!thread || !thread.isThread()) {
       throw new AppError('此操作僅能在工單子區內執行！', 400);
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     // 解析 CustomId: ticket_close_{threadId}_{creatorId}
     const parts = interaction.customId.split('_');
@@ -223,15 +239,15 @@ export class TicketService {
         // 4. 發送關閉紀錄訊息
         await thread.send(`工單已由 <@${interaction.user.id}> 關閉，開票人已被移出子區。`);
 
-        // 5. 在子區封存前回覆點擊者
-        await BaseResponse.send(interaction, '工單已關閉並歸檔。', true);
+        // 5. 鎖定並歸檔子區
+        await thread.setLocked(true).catch(() => {});
+        await thread.setArchived(true).catch(() => {});
 
         // 6. 清理記錄
         await ticketRepository.deleteThreadRecord(threadId);
 
-        // 7. 最後鎖定並歸檔子區
-        await thread.setLocked(true).catch(() => {});
-        await thread.setArchived(true).catch(() => {});
+        // 7. 回覆點擊者 (使用 BaseResponse 統一處置)
+        await BaseResponse.send(interaction, '工單已關閉並歸檔。', true);
       }
     );
   }

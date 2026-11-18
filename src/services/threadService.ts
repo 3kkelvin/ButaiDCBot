@@ -3,6 +3,7 @@ import { config } from '../config';
 import { AppError } from '../utils/appError';
 import { threadRepository } from '../repositories/threadRepository';
 import { IThreadSetting } from '../models/db/threadSetting';
+import { IBackToTopDTO } from '../models/navigation/backToTopDTO';
 import cacheService from './cacheService';
 import { RedisKeys } from '../utils/redisKeys';
 
@@ -104,6 +105,141 @@ export class ThreadService {
     } catch (_err) {
       // 忽略快取同步例外
     }
+  }
+
+  /**
+   * 解析進度百分比參數 (預設 100，範圍 1-100)
+   */
+  private parseProgress(input?: string | null): number {
+    if (!input || !input.trim()) {
+      return 100;
+    }
+    const cleaned = input.trim().replace('%', '');
+    const num = parseFloat(cleaned);
+    if (isNaN(num) || num < 1 || num > 100) {
+      throw new AppError('進度百分比必須為 1 至 100 之間的數值 (例如: 50 或 50%)！', 400);
+    }
+    return Math.round(num * 10) / 10;
+  }
+
+  /**
+   * /back_to_top 業務邏輯：依據百分比定位頻道、討論串或貼文中的歷史訊息跳轉連結
+   *
+   * @param dto 回頂定位傳入參數 (包含 channel 與 progress)
+   * @returns 回應卡片 EmbedBuilder
+   */
+  public async getBackToTopEmbed(dto: IBackToTopDTO): Promise<EmbedBuilder> {
+    const { channel, progress: progressInput } = dto;
+    if (!channel || !('isTextBased' in channel) || !channel.isTextBased()) {
+      throw new AppError('目標頻道必須為文字頻道、討論串或論壇貼文！', 400);
+    }
+
+    const textChannel = channel as any;
+    const progress = this.parseProgress(progressInput);
+    const channelName = 'name' in textChannel ? textChannel.name : '未知頻道';
+
+    let messageUrl = `https://discord.com/channels/${textChannel.guildId || '@me'}/${textChannel.id}`;
+    let messageTimestamp: number | undefined;
+
+    // 情境一：100% 回到消息最開始的地方 (首則訊息)
+    if (progress === 100) {
+      // 若為討論串，優先抓取 Starter Message
+      if (textChannel.isThread && textChannel.isThread()) {
+        try {
+          const starter = await textChannel.fetchStarterMessage();
+          if (starter) {
+            messageUrl = starter.url;
+            messageTimestamp = starter.createdTimestamp;
+          }
+        } catch (_) {}
+      }
+
+      // 若非討論串或未取到 Starter Message，向 Discord 查詢自 Snowflake 0 以後的第一筆訊息
+      if (!messageTimestamp) {
+        try {
+          const firstBatch = await textChannel.messages.fetch({ after: '0', limit: 1 });
+          const firstMsg = firstBatch.first();
+          if (firstMsg) {
+            messageUrl = firstMsg.url;
+            messageTimestamp = firstMsg.createdTimestamp;
+          }
+        } catch (_) {}
+      }
+    } else {
+      // 情境二：1% ~ 99% 百分比插值時間軸定位
+      try {
+        // 1. 抓取最新一則訊息以確認時間上限 EndTimestamp
+        const latestBatch = await textChannel.messages.fetch({ limit: 1 });
+        const latestMsg = latestBatch.first();
+        const endTimestamp = latestMsg ? latestMsg.createdTimestamp : Date.now();
+
+        // 2. 獲取起始時間 StartTimestamp
+        let startTimestamp = textChannel.createdTimestamp;
+        if (textChannel.isThread && textChannel.isThread()) {
+          try {
+            const starter = await textChannel.fetchStarterMessage();
+            if (starter) {
+              startTimestamp = starter.createdTimestamp;
+            }
+          } catch (_) {}
+        } else {
+          const firstBatch = await textChannel.messages.fetch({ after: '0', limit: 1 });
+          const firstMsg = firstBatch.first();
+          if (firstMsg) {
+            startTimestamp = firstMsg.createdTimestamp;
+          }
+        }
+
+        if (!startTimestamp || startTimestamp >= endTimestamp) {
+          // 若只有單一訊息或無歷史，定位至最新訊息
+          if (latestMsg) {
+            messageUrl = latestMsg.url;
+            messageTimestamp = latestMsg.createdTimestamp;
+          }
+        } else {
+          // 3. 計算目標百分比的時間戳 (100% 為起始點，0% 為最新點)
+          const ratio = progress / 100;
+          const targetTimestamp = endTimestamp - (endTimestamp - startTimestamp) * ratio;
+
+          // 4. 將目標毫秒時間戳轉為 Discord 虛擬 Snowflake ID
+          const targetSnowflake = SnowflakeUtil.generate({ timestamp: Math.floor(targetTimestamp) });
+
+          // 5. 利用 around 參數單次高效從 Discord 抓取該時間點最接近的訊息
+          const nearBatch = await textChannel.messages.fetch({ around: targetSnowflake.toString(), limit: 1 });
+          const targetMsg = nearBatch.first();
+
+          if (targetMsg) {
+            messageUrl = targetMsg.url;
+            messageTimestamp = targetMsg.createdTimestamp;
+          } else if (latestMsg) {
+            messageUrl = latestMsg.url;
+            messageTimestamp = latestMsg.createdTimestamp;
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[ThreadService] 百分比回頂搜尋異常:`, err.message);
+      }
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle('訊息回頂定位')
+      .setColor(0x00ffcc)
+      .setDescription(`已成功定位歷史訊息：[點擊跳轉至目標訊息](${messageUrl})`)
+      .addFields(
+        { name: '目標頻道/貼文', value: `<#${textChannel.id}> (${channelName})`, inline: true },
+        { name: '定位進度', value: `${progress}%`, inline: true }
+      );
+
+    if (messageTimestamp) {
+      const unixSec = Math.floor(messageTimestamp / 1000);
+      embed.addFields({
+        name: '訊息發送時間',
+        value: `<t:${unixSec}:F> (<t:${unixSec}:R>)`,
+        inline: false,
+      });
+    }
+
+    return embed.setTimestamp();
   }
 
   /**
