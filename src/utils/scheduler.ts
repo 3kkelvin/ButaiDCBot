@@ -7,6 +7,7 @@ import { threadService } from '../services/threadService';
 import timeoutService from '../services/timeoutService';
 import { vettingService } from '../services/vettingService';
 import { welcomeService } from '../services/welcomeService';
+import { forumPollService } from '../services/forumPollService';
 
 /**
  * 任務配置介面
@@ -58,6 +59,13 @@ const jobs: JobConfig[] = [
     cron: '*/10 * * * *',
     action: async () => {
       await welcomeService.cleanupExpiredMessages(client);
+    },
+  },
+  {
+    name: 'Forum Poll DM Rate-Limit Queue (每 5 分鐘發送 20 人私訊防風控)',
+    cron: '*/5 * * * *',
+    action: async () => {
+      await forumPollService.processDmQueue(client);
     },
   },
 ];
