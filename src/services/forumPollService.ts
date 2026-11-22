@@ -1,20 +1,11 @@
-import {
-  AnyThreadChannel,
-  Client,
-  EmbedBuilder,
-  ForumChannel,
-  TextChannel,
-} from 'discord.js';
+import { AnyThreadChannel, ChannelType, Client, EmbedBuilder, ForumChannel, TextChannel } from 'discord.js';
 import { forumPollRepository } from '../repositories/forumPollRepository';
 import { discordRepository } from '../repositories/discordRepository';
 import { pollService } from './pollService';
 import lockService from './lockService';
 import { RedisKeys } from '../utils/redisKeys';
 import { AppError } from '../utils/appError';
-import {
-  IForumPollSetupDTO,
-  IForumDmQueueItem,
-} from '../models/forum/forumPollDTO';
+import { IForumPollSetupDTO, IForumDmQueueItem } from '../models/forum/forumPollDTO';
 
 /**
  * 私訊每批次發送上限人數 (防止觸發 Discord 濫發私信風控)
@@ -32,12 +23,8 @@ export class ForumPollService {
    * @param forumChannel 論壇頻道實例
    * @returns 成功配置之 Embed 回應卡片
    */
-  public async setupForumPoll(
-    dto: IForumPollSetupDTO,
-    forumChannel: ForumChannel
-  ): Promise<EmbedBuilder> {
-    if (forumChannel.type !== 15) {
-      // 15 = ChannelType.GuildForum
+  public async setupForumPoll(dto: IForumPollSetupDTO, forumChannel: ForumChannel): Promise<EmbedBuilder> {
+    if (forumChannel.type !== ChannelType.GuildForum) {
       throw new AppError('指定頻道必須為論壇頻道 (GuildForum)！', 400);
     }
 
@@ -236,49 +223,68 @@ export class ForumPollService {
 
   /**
    * 定期處理私訊流控隊列 (由 Scheduler 排程器每 5 分鐘驅動一次，每次處理最多 20 人)
+   * 透過分散式鎖防止多實例併發時重複消費隊列
    *
    * @param client Discord 客戶端實例
    */
   public async processDmQueue(client: Client): Promise<void> {
-    const queueItem = await forumPollRepository.popDmQueue();
-    if (!queueItem) return;
+    const lockKey = RedisKeys.Lock.forumDmQueueProcess();
+    try {
+      await lockService.runWithLock(
+        {
+          lockKey,
+          ttlMs: 60000,
+          releaseOnSuccess: true,
+        },
+        async () => {
+          const queueItem = await forumPollRepository.popDmQueue();
+          if (!queueItem) return;
 
-    const { threadName, threadUrl, remainingUserIds } = queueItem;
-    if (!remainingUserIds || remainingUserIds.length === 0) return;
+          const { threadName, threadUrl, remainingUserIds } = queueItem;
+          if (!remainingUserIds || remainingUserIds.length === 0) return;
 
-    // 本次批次取出最多 20 人發送
-    const currentBatch = remainingUserIds.slice(0, DM_BATCH_SIZE);
-    const nextRemaining = remainingUserIds.slice(DM_BATCH_SIZE);
+          // 本次批次取出最多 20 人發送
+          const currentBatch = remainingUserIds.slice(0, DM_BATCH_SIZE);
+          const nextRemaining = remainingUserIds.slice(DM_BATCH_SIZE);
 
-    const dmEmbed = new EmbedBuilder()
-      .setTitle('論壇新貼文通知')
-      .setDescription(`請跳轉至 [${threadName}](${threadUrl})！`)
-      .setColor(0x00ffcc)
-      .setTimestamp();
+          const dmEmbed = new EmbedBuilder()
+            .setTitle('論壇新貼文通知')
+            .setDescription(`請跳轉至 [${threadName}](${threadUrl})！`)
+            .setColor(0x00ffcc)
+            .setTimestamp();
 
-    for (const userId of currentBatch) {
-      try {
-        const user = await client.users.fetch(userId).catch(() => null);
-        if (user && !user.bot) {
-          await user.send({ embeds: [dmEmbed] });
+          for (const userId of currentBatch) {
+            try {
+              const user = await client.users.fetch(userId).catch(() => null);
+              if (user && !user.bot) {
+                await user.send({ embeds: [dmEmbed] });
+              }
+            } catch (dmErr: any) {
+              if (dmErr.code === 50007) {
+                console.warn(`[ForumPollService Queue] 用戶 ${userId} 關閉了私訊接收，安全略過。`);
+              } else {
+                console.error(`[ForumPollService Queue] 隊列發送私訊至 ${userId} 失敗:`, dmErr.message);
+              }
+            }
+          }
+
+          console.log(
+            `[ForumPollService Queue] 已完成一批 ${currentBatch.length} 人私訊發送，剩餘待發送: ${nextRemaining.length} 人`
+          );
+
+          // 若該貼文還有剩餘名額，放回隊列中供 5 分鐘後的下一輪排程消費
+          if (nextRemaining.length > 0) {
+            queueItem.remainingUserIds = nextRemaining;
+            await forumPollRepository.requeueDmItem(queueItem);
+          }
         }
-      } catch (dmErr: any) {
-        if (dmErr.code === 50007) {
-          console.warn(`[ForumPollService Queue] 用戶 ${userId} 關閉了私訊接收，安全略過。`);
-        } else {
-          console.error(`[ForumPollService Queue] 隊列發送私訊至 ${userId} 失敗:`, dmErr.message);
-        }
+      );
+    } catch (err: any) {
+      if (err instanceof AppError && err.statusCode === 429) {
+        // 另一個實例正在處理隊列，安全跳過
+        return;
       }
-    }
-
-    console.log(
-      `[ForumPollService Queue] 已完成一批 ${currentBatch.length} 人私訊發送，剩餘待發送: ${nextRemaining.length} 人`
-    );
-
-    // 若該貼文還有剩餘名額，放回隊列中供 5 分鐘後的下一輪排程消費
-    if (nextRemaining.length > 0) {
-      queueItem.remainingUserIds = nextRemaining;
-      await forumPollRepository.requeueDmItem(queueItem);
+      throw err;
     }
   }
 }

@@ -37,6 +37,8 @@ export const RedisKeys = {
     forumPollThread: (threadId: string) => `forum_poll_thread:${threadId}`,
     /** 歡迎訊息打招呼防連點鎖 */
     welcomeGreet: (userId: string) => `welcome_greet:${userId}`,
+    /** 論壇私訊流控排程消費鎖 (防止多實例併發重複消費) */
+    forumDmQueueProcess: () => 'forum_poll:process_dm_queue',
   },
 
   /**

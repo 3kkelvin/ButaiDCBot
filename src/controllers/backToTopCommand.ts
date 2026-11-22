@@ -20,7 +20,7 @@ export const backToTopCommand: ICommand = {
     .addStringOption((option) =>
       option
         .setName('progress')
-        .setDescription('定位歷史訊息進度百分比 (例如 50、50%，範圍 1-100%，預設 100% 回到最頂端)')
+        .setDescription('定位歷史訊息的時間軸進度百分比 (例如 50、50%，範圍 1-100%，預設 100% 回到最頂端)')
         .setRequired(false)
     )
     .addChannelOption((option) =>

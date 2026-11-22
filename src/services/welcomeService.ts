@@ -99,10 +99,7 @@ export class WelcomeService {
 
     // 2. 組裝他人可點擊之打招呼按鈕
     const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`welcome_greet_${member.id}`)
-        .setLabel('打個招呼')
-        .setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId(`welcome_greet_${member.id}`).setLabel('打個招呼').setStyle(ButtonStyle.Primary)
     );
 
     // 3. 發送訊息 (內容直接 @ 被 ping 的新成員用戶)
@@ -123,6 +120,8 @@ export class WelcomeService {
    * @param interaction 按鈕點擊交互
    */
   public async handleGreetButton(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
     const targetMemberId = interaction.customId.replace('welcome_greet_', '');
     if (!targetMemberId) {
       throw new AppError('無效的歡迎互動目標！', 400);
@@ -140,12 +139,6 @@ export class WelcomeService {
     ];
     const greetingText = greetings[Math.floor(Math.random() * greetings.length)];
 
-    // 檢查點擊者是否已對該成員打過招呼 (每人限按一次)
-    const hasGreeted = await welcomeRepository.hasUserGreeted(targetMemberId, interaction.user.id);
-    if (hasGreeted) {
-      throw new AppError('您已經向該成員打過招呼了，每人限按一次！', 400);
-    }
-
     // 防連點互斥鎖
     const lockKey = RedisKeys.Lock.welcomeGreet(interaction.user.id);
     await lockService.runWithLock(
@@ -155,6 +148,12 @@ export class WelcomeService {
         releaseOnSuccess: true,
       },
       async () => {
+        // 檢查點擊者是否已對該成員打過招呼 (每人限按一次，移入分散式鎖內以防止並發競態)
+        const hasGreeted = await welcomeRepository.hasUserGreeted(targetMemberId, interaction.user.id);
+        if (hasGreeted) {
+          throw new AppError('您已經向該成員打過招呼了，每人限按一次！', 400);
+        }
+
         // 記錄該使用者已打過招呼
         await welcomeRepository.recordUserGreet(targetMemberId, interaction.user.id);
 
@@ -186,8 +185,7 @@ export class WelcomeService {
     for (const item of dueItems) {
       try {
         const channel =
-          client.channels.cache.get(item.channelId) ||
-          (await client.channels.fetch(item.channelId).catch(() => null));
+          client.channels.cache.get(item.channelId) || (await client.channels.fetch(item.channelId).catch(() => null));
         if (channel && channel instanceof TextChannel) {
           const msg = await channel.messages.fetch(item.messageId).catch(() => null);
           if (msg) {
