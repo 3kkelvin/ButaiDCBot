@@ -36,6 +36,17 @@ export class TicketRepository {
   }
 
   /**
+   * 刪除/停用特定頻道的工單面板配置
+   * 
+   * @param guildId 伺服器 ID
+   * @param channelId 頻道 ID
+   */
+  public async deleteConfig(guildId: string, channelId: string): Promise<void> {
+    const key = RedisKeys.Cache.ticketConfig(guildId, channelId);
+    await redis.del(key);
+  }
+
+  /**
    * 儲存已建立的私人子區工單記錄
    *
    * @param threadId 私人子區 ID

@@ -37,6 +37,8 @@ export const RedisKeys = {
     forumPollThread: (threadId: string) => `forum_poll_thread:${threadId}`,
     /** 歡迎訊息打招呼防連點鎖 */
     welcomeGreet: (userId: string) => `welcome_greet:${userId}`,
+    /** 論壇私訊流控排程消費鎖 (防止多實例併發重複消費) */
+    forumDmQueueProcess: () => 'forum_poll:process_dm_queue',
   },
 
   /**
@@ -81,5 +83,9 @@ export const RedisKeys = {
   Data: {
     /** 待自動刪除的歡迎訊息 Sorted Set Key */
     welcomePendingDeletions: () => 'welcome:pending_deletions',
+    /** 論壇新貼文私訊流控發送隊列 List Key (每 5 分鐘發送 20 人) */
+    forumDmQueue: () => 'forum_poll:dm_queue',
+    /** 已向新成員打過招呼之使用者 Set Key (限制每人僅能按一次) */
+    welcomeGreetedUsers: (targetMemberId: string) => `welcome:greeted:${targetMemberId}`,
   },
 };

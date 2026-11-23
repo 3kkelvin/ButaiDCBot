@@ -2,7 +2,6 @@ import { ButtonInteraction, Client, Events } from 'discord.js';
 import { commandsMap } from '../utils/commands';
 import { DiscordLogger } from '../utils/discordLogger';
 import { discordEventHandler } from '../utils/discordEventHandler';
-import { forumPollService } from '../services/forumPollService';
 import { welcomeService } from '../services/welcomeService';
 import { ticketService } from '../services/ticketService';
 
@@ -12,25 +11,19 @@ import { ticketService } from '../services/ticketService';
 async function handleButtonInteraction(interaction: ButtonInteraction): Promise<void> {
   const customId = interaction.customId;
 
-  // 1. 論壇通知永不打擾按鈕
-  if (customId === 'forum_poll_optout') {
-    await forumPollService.handleOptOutButton(interaction);
-    return;
-  }
-
-  // 2. 歡迎新成員打招呼按鈕
+  // 1. 歡迎新成員打招呼按鈕
   if (customId.startsWith('welcome_greet_')) {
     await welcomeService.handleGreetButton(interaction);
     return;
   }
 
-  // 3. 申請工單按鈕
+  // 2. 申請工單按鈕
   if (customId.startsWith('ticket_apply_')) {
     await ticketService.handleApplyButton(interaction);
     return;
   }
 
-  // 4. 關閉工單按鈕
+  // 3. 關閉工單按鈕
   if (customId.startsWith('ticket_close_')) {
     await ticketService.handleCloseButton(interaction);
     return;
@@ -84,8 +77,8 @@ export const setupInteractionController = (client: Client) => {
         }
 
         DiscordLogger.sendInfoLog({
-          title: '📝指令使用紀錄',
-          message: `👤 **${interaction.user.tag}** 使用了指令`,
+          title: '[指令使用紀錄]',
+          message: `**${interaction.user.tag}** 使用了指令`,
           commandName: fullCommandName,
           userId: interaction.user.id,
           timestamp: new Date().toISOString(),
