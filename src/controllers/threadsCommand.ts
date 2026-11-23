@@ -78,9 +78,14 @@ export const threadsCommand: ICommand = {
     await interaction.deferReply({ ephemeral: isEphemeral });
 
     switch (subcommand) {
-      case 'top':
-        await BaseResponse.send(interaction, await threadService.getTopPayload(interaction.channel));
+      case 'top': {
+        const embed = await threadService.getBackToTopEmbed({
+          channel: interaction.channel,
+          progress: '100',
+        });
+        await BaseResponse.send(interaction, embed);
         break;
+      }
 
       case 'coworker': {
         const action = interaction.options.getString('action', true) as 'set' | 'unset';

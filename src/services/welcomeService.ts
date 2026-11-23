@@ -13,6 +13,7 @@ import lockService from './lockService';
 import { RedisKeys } from '../utils/redisKeys';
 import { AppError } from '../utils/appError';
 import { BaseResponse } from '../utils/baseResponse';
+import { IWelcomeSetupDTO } from '../models/welcome/welcomeDTO';
 
 /**
  * 3 天過期自刪毫秒數 (3 * 24 * 60 * 60 * 1000)
@@ -24,29 +25,45 @@ const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
  */
 export class WelcomeService {
   /**
-   * 設定伺服器的自動歡迎頻道與歡迎詞
+   * 設定或關閉伺服器的自動歡迎功能
    *
-   * @param guildId 伺服器 ID
-   * @param channelId 文字頻道 ID
-   * @param context 歡迎內文
+   * @param dto 歡迎設定參數
    * @returns 成功配置之 Embed 回應卡片
    */
-  public async setupWelcome(guildId: string, channelId: string, context: string): Promise<EmbedBuilder> {
+  public async setupWelcome(dto: IWelcomeSetupDTO): Promise<EmbedBuilder> {
+    // 1. 處理完全關閉動作 (action === 'off')
+    if (dto.action === 'off') {
+      await welcomeRepository.deleteConfig(dto.guildId);
+
+      return new EmbedBuilder()
+        .setTitle('歡迎系統已關閉')
+        .setColor(0xe74c3c)
+        .setDescription('已完全停用伺服器新成員自動歡迎訊息功能。')
+        .setTimestamp();
+    }
+
+    // 2. 處理啟用/覆蓋動作 (action === 'on')
+    if (!dto.channelId || !dto.context) {
+      throw new AppError('啟用歡迎功能時必須指定歡迎文字頻道 (channel) 與歡迎詞內文 (context)！', 400);
+    }
+
     await welcomeRepository.saveConfig({
-      guildId,
-      channelId,
-      context,
+      guildId: dto.guildId,
+      channelId: dto.channelId,
+      context: dto.context,
+      enabled: true,
       updatedAt: new Date().toISOString(),
     });
 
     return new EmbedBuilder()
       .setTitle('歡迎系統配置完成')
       .setColor(0x57f287)
-      .setDescription('已成功配置新成員歡迎訊息與互動打招呼按鈕！')
+      .setDescription('已成功配置新成員歡迎訊息與互動打招呼按鈕！(已覆蓋原有設定)')
       .addFields(
-        { name: '發送頻道', value: `<#${channelId}>`, inline: true },
-        { name: '歡迎內文', value: context, inline: false },
-        { name: '訊息有效期限', value: '3 天 (期滿自動刪除)', inline: true }
+        { name: '發送頻道', value: `<#${dto.channelId}>`, inline: true },
+        { name: '運行狀態', value: '啟用 (on)', inline: true },
+        { name: '按鈕有效期限', value: '3 天 (期滿自動移除按鈕)', inline: true },
+        { name: '歡迎內文', value: dto.context, inline: false }
       )
       .setTimestamp();
   }
@@ -58,7 +75,7 @@ export class WelcomeService {
    */
   public async handleNewMember(member: GuildMember): Promise<void> {
     const config = await welcomeRepository.getConfig(member.guild.id);
-    if (!config) return;
+    if (!config || !config.enabled) return;
 
     const channel =
       member.guild.channels.cache.get(config.channelId) ||
@@ -77,7 +94,7 @@ export class WelcomeService {
       .setTitle('歡迎新成員加入！')
       .setDescription(config.context)
       .setColor(0x57f287)
-      .setFooter({ text: '點擊下方按鈕向新成員打招呼 (此訊息 3 天後將自動清理)' })
+      .setFooter({ text: '點擊下方按鈕向新成員打招呼 (此按鈕 3 天後將自動移除)' })
       .setTimestamp();
 
     // 2. 組裝他人可點擊之打招呼按鈕
@@ -103,6 +120,8 @@ export class WelcomeService {
    * @param interaction 按鈕點擊交互
    */
   public async handleGreetButton(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
     const targetMemberId = interaction.customId.replace('welcome_greet_', '');
     if (!targetMemberId) {
       throw new AppError('無效的歡迎互動目標！', 400);
@@ -129,6 +148,15 @@ export class WelcomeService {
         releaseOnSuccess: true,
       },
       async () => {
+        // 檢查點擊者是否已對該成員打過招呼 (每人限按一次，移入分散式鎖內以防止並發競態)
+        const hasGreeted = await welcomeRepository.hasUserGreeted(targetMemberId, interaction.user.id);
+        if (hasGreeted) {
+          throw new AppError('您已經向該成員打過招呼了，每人限按一次！', 400);
+        }
+
+        // 記錄該使用者已打過招呼
+        await welcomeRepository.recordUserGreet(targetMemberId, interaction.user.id);
+
         // 讓機器人於頻道內發布打招呼文字訊息
         if (interaction.channel && 'send' in interaction.channel) {
           await interaction.channel.send({
@@ -144,7 +172,7 @@ export class WelcomeService {
   }
 
   /**
-   * 定時清理超過 3 天的過期歡迎訊息 (由 scheduler 排程驅動)
+   * 定時清理超過 3 天的過期歡迎按鈕 (由 scheduler 排程驅動，僅自刪按鈕，保留歡迎卡片)
    *
    * @param client Discord 客戶端實例
    */
@@ -152,7 +180,7 @@ export class WelcomeService {
     const dueItems = await welcomeRepository.getDueDeletions(Date.now());
     if (dueItems.length === 0) return;
 
-    console.log(`[WelcomeService] 偵測到 ${dueItems.length} 則待刪除的 3 天到期歡迎訊息...`);
+    console.log(`[WelcomeService] 偵測到 ${dueItems.length} 則待清理按鈕的 3 天到期歡迎訊息...`);
 
     for (const item of dueItems) {
       try {
@@ -161,11 +189,12 @@ export class WelcomeService {
         if (channel && channel instanceof TextChannel) {
           const msg = await channel.messages.fetch(item.messageId).catch(() => null);
           if (msg) {
-            await msg.delete().catch(() => {});
+            // 僅移除按鈕組件 (components)，保留原始歡迎文字與 Embed 卡片
+            await msg.edit({ components: [] }).catch(() => {});
           }
         }
       } catch (err: any) {
-        console.error(`[WelcomeService] 刪除過期歡迎訊息失敗 (${item.messageId}):`, err.message);
+        console.error(`[WelcomeService] 清理過期歡迎按鈕失敗 (${item.messageId}):`, err.message);
       } finally {
         // 從排程中移除已處理的記錄
         await welcomeRepository.removePendingDeletion(item.raw);

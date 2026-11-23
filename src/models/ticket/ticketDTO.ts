@@ -1,4 +1,9 @@
 /**
+ * 操作動作：啟用/覆蓋 (on) 或 關閉 (off)
+ */
+export type TicketAction = 'on' | 'off';
+
+/**
  * 工單頻道與接收身分組配置介面 (DAO / Entity)
  */
 export interface ITicketConfig {
@@ -6,6 +11,8 @@ export interface ITicketConfig {
   guildId: string;
   /** 工單面板文字頻道 ID */
   channelId: string;
+  /** 是否啟用工單申請功能 */
+  enabled: boolean;
   /** 接收工單通知與管理之身分組 ID 陣列 */
   roleIds: string[];
   /** 配置更新時間戳 (ISO8601) */
@@ -31,13 +38,15 @@ export interface ITicketThreadRecord {
 }
 
 /**
- * 建立工單面板傳入參數 (DTO)
+ * 建立/設定工單面板傳入參數 (DTO)
  */
 export interface ITicketSetupDTO {
   /** 伺服器 Guild ID */
   guildId: string;
   /** 工單面板文字頻道 ID */
   channelId: string;
+  /** 操作動作 */
+  action: TicketAction;
   /** 指定身分組 ID 陣列 */
-  roleIds: string[];
+  roleIds?: string[];
 }

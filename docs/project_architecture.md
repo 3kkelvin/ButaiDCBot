@@ -9,14 +9,14 @@
 本系統嚴格遵循三層式軟體工程架構，各層職責清晰對稱，邊界明確：
 
 1. **表現層 (Presentation Layer - Controllers & Commands)**
-   * **成員**：`interactionController`、`buttonController`、`messageController`、`guildMemberUpdateController`、`pingCommand`、`helpCommand`、`roleCommand`、`timeoutCommand` 等。
+   * **成員**：`interactionController`、`messageController`、`guildMemberUpdateController`、`threadCreateController`、`guildMemberAddController`、`pingCommand`、`helpCommand`、`roleCommand`、`timeoutCommand`、`forumPollCommand`、`welcomeCommand`、`ticketCommand`、`backToTopCommand` 等。
    * **職責**：事件接收自治、請求路由分發、解析 Discord 互動與按鈕 (`isButton`) 上下文、組裝與渲染多媒體 UI (Embeds, Buttons, Components)。
 2. **業務邏輯層 (Business Logic Layer - Services)**
-   * **成員**：`pingService`、`helpService`、`roleService`、`timeoutService`、`cacheService`、`lockService`。
-   * **職責**：商業邏輯運算、幫助說明反射與 10 行分頁計算、快取生命週期 (TTL/Promise Collapsing)、分散式鎖原子互斥控制。
+   * **成員**：`pingService`、`helpService`、`roleService`、`timeoutService`、`cacheService`、`lockService`、`forumPollService`、`welcomeService`、`ticketService`、`threadService`、`pollService`。
+   * **職責**：商業邏輯運算、幫助說明反射與 10 行分頁計算、快取生命週期 (TTL/Promise Collapsing)、分散式鎖原子互斥控制、論壇貼文自動投票與 DM/頻道分流排程、新成員歡迎與 3 天按鈕清理、工單私人子區與結案歸檔、訊息回頂百分比定位。
 3. **資料存取層 (Data Access Layer - Repositories)**
-   * **成員**：`webhookRepository`、`cacheRepository` (DAL Helper)。
-   * **職責**：底層持久化讀寫 (Supabase/PostgreSQL) 與外部 Discord Rest API 請求封裝。
+   * **成員**：`webhookRepository`、`cacheRepository`、`threadRepository`、`forumPollRepository`、`welcomeRepository`、`ticketRepository`、`discordRepository`。
+   * **職責**：底層持久化讀寫 (Supabase/PostgreSQL/Redis) 與外部 Discord Rest API 請求封裝（含全服成員快取與防擊穿保護）。
 
 ---
 
@@ -183,24 +183,37 @@ flowchart TD
 
 ## 8. 自動化功能模組 (Automated Modules)
 
-### A. 論壇發帖自動投票與通知模組 (/forum poll)
-* **指令**：`/forum poll (forum: role: ping: true/false)` (僅限管理者/技術公務員)
+### A. 論壇發帖自動投票與通知模組 (/forum_poll)
+* **指令**：`/forum_poll forum:論壇頻道 action:on/off [mode:私信/頻道通知/無] [role:指定身分組] [notify_channel:文字頻道]` (僅限管理者/技術公務員)
 * **流程**：
   1. 監聽 `Events.ThreadCreate`，當指定論壇頻道建立新貼文時觸發。
   2. 於新討論串內自動發起投票（內容與時限與 `/poll` 一致：48小時、支持/反對/棄權）。
-  3. 依據設定私訊通知指定身分組的所有成員（透過 DAL 快取 `discordRepository.getGuildMembers`）。
-  4. 當 `ping: true` 時，私訊附帶「決定關閉通知 (永不打擾)」按鈕；若點擊則於 Redis 標記永不打擾，後續不再打擾；當 `ping: false` 時則移除該按鈕。
+  3. 依據 `mode` 進行通知分流：
+     - **Mode 私信 (dm)**：針對指定身分組成員發送私訊，拔除 ping 按鈕；為防止觸發 Discord 濫發私信風控，嚴格實施流控限制（第一批立即發送最多 20 人，超過 20 人的剩餘成員推入 Redis 隊列，由排程中心每 5 分鐘發送 20 人）。
+     - **Mode 頻道通知 (channel)**：於指定文字頻道發送文字訊息艾特指定身分組，並發送附帶帖子連結的 Embed 卡片。
+     - **Mode 無 (none)**：不進行任何通知，僅在貼文內發起投票。
+  4. 當 `action: on` 時覆蓋先前設定，`action: off` 時完全關閉該論壇頻道的自動功能。
 
 ### B. 新成員加入自動歡迎模組 (/welcome)
-* **指令**：`/welcome (channel: context:)` (僅限管理者/技術公務員)
+* **指令**：`/welcome action:on/off [channel:文字頻道] [context:歡迎詞]` (僅限管理者/技術公務員)
 * **流程**：
-  1. 監聽 `Events.GuildMemberAdd`，新成員加入時於指定文字頻道發送歡迎卡片並直接 @ 該成員。
-  2. 附帶「打個招呼」按鈕，其他成員點擊後機器人將以文字訊息公開發布打招呼內容。
-  3. 歡迎訊息設定 3 天有效時限，透過 Redis Sorted Set 排程紀錄，由排程中心每 10 分鐘自動清理超過 3 天的訊息。
+  1. 支援 `action: on/off`：`action: on` 覆蓋並啟用歡迎設定，`action: off` 完全停用歡迎功能。
+  2. 監聽 `Events.GuildMemberAdd`，新成員加入時於指定文字頻道發送歡迎卡片並直接 @ 該成員。
+  3. 附帶「打個招呼」按鈕（限制每人僅能打招呼一次），其他成員點擊後機器人將以文字訊息公開發布打招呼內容。
+  4. 歡迎按鈕設定 3 天有效時限，透過 Redis Sorted Set 排程紀錄，由排程中心每 10 分鐘自動清理超過 3 天的按鈕組件（僅自刪按鈕，保留歡迎卡片與文字）。
 
 ### C. 客服工單系統模組 (/ticket channel)
-* **指令**：`/ticket channel (channel: roll: [roll_2 ~ roll_5])` (僅限管理者/技術公務員)
+* **指令**：`/ticket channel channel:文字頻道 action:on/off [roll:身分組] [roll_2 ~ roll_5]` (僅限管理者/技術公務員)
 * **流程**：
-  1. 於指定文字頻道部署工單申請面板（標題：「建立工单」，內容：「有任何需求，意见，投诉，询问都可以在这里申请」，按鈕：「申请」）。
-  2. 使用者點擊「申请」按鈕時，透過分散式鎖防止連點，自動建立專屬私人子區 (Private Thread)，並於子區內提及開票人與指定的身分組。
-  3. 進入子區後，僅有指定身分組人員或管理者有權限點擊「關閉工單」按鈕，執行將開票人移出子區、發送結案記錄並歸檔鎖定子區。
+  1. 支援 `action: on/off`：`action: on` 覆蓋並部署工單申請面板，`action: off` 完全停用該頻道的工單功能。
+  2. 於指定文字頻道部署工單申請面板（標題：「建立工单」，內容：「有任何需求，意见，投诉，询问都可以在这里申请」，按鈕：「申请」）。
+  3. 使用者點擊「申请」按鈕時，透過分散式鎖防止連點，自動建立專屬私人子區 (Private Thread)，並於子區內提及開票人與指定的身分組。
+  4. 進入子區後，僅有指定身分組人員或管理者有權限點擊「關閉工單」按鈕，執行將開票人移出子區、發送結案記錄並歸檔鎖定子區。
+
+### D. 訊息回頂定位模組 (/back_to_top)
+* **指令**：`/back_to_top [progress:百分比] [target_channel:目標頻道/貼文/子區]` (原 `/threads top` 升級改名)
+* **流程**：
+  1. 支援在文字頻道、貼文或子區內使用，未填寫 `target_channel` 則預設為當前頻道。
+  2. 支援 `progress` 百分比參數（例如 50、50%，範圍 1-100%，預設 100%）。
+  3. 當進度為 100% 時，精確定位該頻道或貼文的第一則開頭訊息 (Starter Message / Earliest Message)。
+  4. 當進度為 1-99% 時，採用 Discord Snowflake 時間軸插值定位法，以 O(1) 效率直接查詢該百分比位置最接近的歷史訊息跳轉連結。

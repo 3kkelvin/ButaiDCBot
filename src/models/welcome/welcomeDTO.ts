@@ -1,4 +1,9 @@
 /**
+ * 操作動作：啟用/覆蓋 (on) 或 關閉 (off)
+ */
+export type WelcomeAction = 'on' | 'off';
+
+/**
  * 伺服器新成員歡迎配置介面 (DAO / Entity)
  */
 export interface IWelcomeConfig {
@@ -8,6 +13,8 @@ export interface IWelcomeConfig {
   channelId: string;
   /** 自訂歡迎詞內文 */
   context: string;
+  /** 是否啟用歡迎功能 */
+  enabled: boolean;
   /** 配置更新時間戳 (ISO8601) */
   updatedAt: string;
 }
@@ -34,4 +41,18 @@ export interface IWelcomeGreetDTO {
   clickerId: string;
   /** 點擊打招呼按鈕的成員名稱 */
   clickerName: string;
+}
+
+/**
+ * 設定新成員歡迎功能之傳入參數 (DTO)
+ */
+export interface IWelcomeSetupDTO {
+  /** 伺服器 Guild ID */
+  guildId: string;
+  /** 操作動作 */
+  action: WelcomeAction;
+  /** 發送歡迎訊息之文字頻道 ID */
+  channelId?: string;
+  /** 自訂歡迎詞內文 */
+  context?: string;
 }

@@ -89,6 +89,37 @@ export class WelcomeRepository {
     const key = RedisKeys.Data.welcomePendingDeletions();
     await redis.zrem(key, rawItem);
   }
+
+  /**
+   * 檢查特定使用者是否已經向該新成員打過招呼
+   * 
+   * @param targetMemberId 被歡迎的新成員 ID
+   * @param userId 點擊打招呼的使用者 ID
+   */
+  public async hasUserGreeted(targetMemberId: string, userId: string): Promise<boolean> {
+    const key = RedisKeys.Data.welcomeGreetedUsers(targetMemberId);
+    const result = await redis.sismember(key, userId);
+    return result === 1;
+  }
+
+  /**
+   * 記錄使用者已向該新成員打過招呼 (防止重複打招呼)
+   * 
+   * @param targetMemberId 被歡迎的新成員 ID
+   * @param userId 點擊打招呼的使用者 ID
+   * @param ttlSeconds 快取保存秒數 (例如 3 天 = 259200 秒)
+   */
+  public async recordUserGreet(
+    targetMemberId: string,
+    userId: string,
+    ttlSeconds: number = 259200
+  ): Promise<void> {
+    const key = RedisKeys.Data.welcomeGreetedUsers(targetMemberId);
+    const pipeline = redis.pipeline();
+    pipeline.sadd(key, userId);
+    pipeline.expire(key, ttlSeconds);
+    await pipeline.exec();
+  }
 }
 
 export const welcomeRepository = new WelcomeRepository();
