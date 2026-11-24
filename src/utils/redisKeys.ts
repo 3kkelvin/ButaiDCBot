@@ -39,6 +39,8 @@ export const RedisKeys = {
     welcomeGreet: (userId: string) => `welcome_greet:${userId}`,
     /** 論壇私訊流控排程消費鎖 (防止多實例併發重複消費) */
     forumDmQueueProcess: () => 'forum_poll:process_dm_queue',
+    /** 工單 7 天逾期自動關閉排程互斥鎖 */
+    ticketAutoClose: () => 'ticket:auto_close',
   },
 
   /**
@@ -67,6 +69,10 @@ export const RedisKeys = {
     ticketConfig: (guildId: string, channelId: string) => `ticket:config:${guildId}:${channelId}`,
     /** 工單私人子區記錄 Key */
     ticketThread: (threadId: string) => `ticket:thread:${threadId}`,
+    /** 使用者當前未關閉工單索引 Key */
+    ticketUserActive: (guildId: string, userId: string) => `ticket:active:${guildId}:${userId}`,
+    /** 使用者工單關閉後冷卻 Key (3 天) */
+    ticketUserCooldown: (guildId: string, userId: string) => `ticket:cooldown:${guildId}:${userId}`,
   },
 
   /**
@@ -87,5 +93,7 @@ export const RedisKeys = {
     forumDmQueue: () => 'forum_poll:dm_queue',
     /** 已向新成員打過招呼之使用者 Set Key (限制每人僅能按一次) */
     welcomeGreetedUsers: (targetMemberId: string) => `welcome:greeted:${targetMemberId}`,
+    /** 待逾時自動關閉的工單 Sorted Set Key (7 天未關閉自動結案) */
+    ticketPendingAutoClose: () => 'ticket:pending_auto_close',
   },
 };
