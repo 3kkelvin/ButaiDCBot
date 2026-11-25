@@ -50,13 +50,3 @@ export interface ITicketSetupDTO {
   /** 指定身分組 ID 陣列 */
   roleIds?: string[];
 }
-
-/**
- * 待自動關閉工單排程項目介面 (DAO)
- */
-export interface ITicketPendingCloseItem {
-  /** 私人子區 Thread ID */
-  threadId: string;
-  /** 到期時間戳 (毫秒) */
-  expireAtMs: number;
-}

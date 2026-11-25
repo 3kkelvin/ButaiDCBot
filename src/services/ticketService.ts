@@ -161,10 +161,8 @@ export class TicketService {
             throw new AppError(`您目前已有一筆未關閉的進行中工單 (<#${activeThreadId}>)，請等待該工單關閉後再行申請！`, 400);
           }
 
-          // 若子區已被手動刪除或封存，清除殘留的進行中紀錄並補寫冷卻清理
-          await ticketRepository.deleteUserActiveTicket(guild.id, interaction.user.id);
-          await ticketRepository.deleteThreadRecord(activeThreadId);
-          await ticketRepository.removePendingAutoClose(activeThreadId);
+          // 若子區已被手動刪除或封存，執行結案清理並寫入 3 天冷卻，防止繞過冷卻限制
+          await this.finalizeTicketClosure(guild.id, activeThreadId, interaction.user.id);
         }
 
         // 2. 檢查使用者是否處於工單關閉後的 3 天冷卻期
