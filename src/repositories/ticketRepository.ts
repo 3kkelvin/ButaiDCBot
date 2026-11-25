@@ -84,6 +84,99 @@ export class TicketRepository {
     const key = RedisKeys.Cache.ticketThread(threadId);
     await redis.del(key);
   }
+
+  /**
+   * 記錄使用者目前進行中的工單子區 ID
+   *
+   * @param guildId 伺服器 ID
+   * @param userId 使用者 ID
+   * @param threadId 私人子區 ID
+   */
+  public async setUserActiveTicket(guildId: string, userId: string, threadId: string): Promise<void> {
+    const key = RedisKeys.Cache.ticketUserActive(guildId, userId);
+    await redis.set(key, threadId);
+  }
+
+  /**
+   * 取得使用者目前進行中的工單子區 ID
+   *
+   * @param guildId 伺服器 ID
+   * @param userId 使用者 ID
+   */
+  public async getUserActiveTicket(guildId: string, userId: string): Promise<string | null> {
+    const key = RedisKeys.Cache.ticketUserActive(guildId, userId);
+    return await redis.get(key);
+  }
+
+  /**
+   * 清除使用者目前進行中的工單索引
+   *
+   * @param guildId 伺服器 ID
+   * @param userId 使用者 ID
+   */
+  public async deleteUserActiveTicket(guildId: string, userId: string): Promise<void> {
+    const key = RedisKeys.Cache.ticketUserActive(guildId, userId);
+    await redis.del(key);
+  }
+
+  /**
+   * 設定使用者工單關閉後的申請冷卻時間
+   *
+   * @param guildId 伺服器 ID
+   * @param userId 使用者 ID
+   * @param cooldownSeconds 冷卻秒數 (例如 3 天 = 259200 秒)
+   */
+  public async setUserCooldown(guildId: string, userId: string, cooldownSeconds: number): Promise<void> {
+    const key = RedisKeys.Cache.ticketUserCooldown(guildId, userId);
+    const expireAtMs = Date.now() + cooldownSeconds * 1000;
+    await redis.set(key, expireAtMs.toString(), 'EX', cooldownSeconds);
+  }
+
+  /**
+   * 取得使用者工單冷卻到期毫秒時間戳 (若未處於冷卻中則回傳 null)
+   *
+   * @param guildId 伺服器 ID
+   * @param userId 使用者 ID
+   */
+  public async getUserCooldownUntil(guildId: string, userId: string): Promise<number | null> {
+    const key = RedisKeys.Cache.ticketUserCooldown(guildId, userId);
+    const raw = await redis.get(key);
+    if (!raw) return null;
+
+    const expireAtMs = Number(raw);
+    return Number.isFinite(expireAtMs) ? expireAtMs : null;
+  }
+
+  /**
+   * 將新建立的工單加入 7 天逾期自動關閉 Sorted Set 排程
+   *
+   * @param threadId 私人子區 ID
+   * @param expireAtMs 預計自動關閉的毫秒時間戳
+   */
+  public async addPendingAutoClose(threadId: string, expireAtMs: number): Promise<void> {
+    const key = RedisKeys.Data.ticketPendingAutoClose();
+    await redis.zadd(key, expireAtMs, threadId);
+  }
+
+  /**
+   * 查詢所有已超過 7 天未關閉的逾期工單 Thread ID
+   *
+   * @param nowMs 當前毫秒時間戳
+   */
+  public async getDueAutoCloses(nowMs: number): Promise<string[]> {
+    const key = RedisKeys.Data.ticketPendingAutoClose();
+    return await redis.zrangebyscore(key, '-inf', nowMs);
+  }
+
+  /**
+   * 從 Sorted Set 中移除已處理的工單排程記錄
+   *
+   * @param threadId 私人子區 ID
+   */
+  public async removePendingAutoClose(threadId: string): Promise<void> {
+    const key = RedisKeys.Data.ticketPendingAutoClose();
+    await redis.zrem(key, threadId);
+  }
 }
 
 export const ticketRepository = new TicketRepository();
