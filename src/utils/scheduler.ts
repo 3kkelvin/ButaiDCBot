@@ -8,6 +8,7 @@ import timeoutService from '../services/timeoutService';
 import { vettingService } from '../services/vettingService';
 import { welcomeService } from '../services/welcomeService';
 import { forumPollService } from '../services/forumPollService';
+import { ticketService } from '../services/ticketService';
 
 /**
  * 任務配置介面
@@ -66,6 +67,13 @@ const jobs: JobConfig[] = [
     cron: '*/5 * * * *',
     action: async () => {
       await forumPollService.processDmQueue(client);
+    },
+  },
+  {
+    name: 'Ticket Auto-Close (每 10 分鐘檢查並自動關閉超過 7 天未關閉的工單)',
+    cron: '*/10 * * * *',
+    action: async () => {
+      await ticketService.autoCloseExpiredTickets(client);
     },
   },
 ];

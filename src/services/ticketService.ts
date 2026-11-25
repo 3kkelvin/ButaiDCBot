@@ -4,6 +4,7 @@ import {
   ButtonInteraction,
   ButtonStyle,
   ChannelType,
+  Client,
   EmbedBuilder,
   Guild,
   PermissionFlagsBits,
@@ -20,9 +21,35 @@ import { config } from '../config';
 import { ITicketSetupDTO } from '../models/ticket/ticketDTO';
 
 /**
+ * 單一工單關閉後再次申請的冷卻時間秒數 (3 天 = 259200 秒)
+ */
+const TICKET_COOLDOWN_SECONDS = 3 * 24 * 60 * 60;
+
+/**
+ * 工單未關閉自動結案的逾時毫秒數 (7 天)
+ */
+const TICKET_AUTO_CLOSE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * 工單系統業務邏輯層 (BLL)
  */
 export class TicketService {
+  /**
+   * 清理單一工單的持久化紀錄、待關閉排程、使用中狀態並寫入 3 天冷卻時間
+   *
+   * @param guildId 伺服器 ID
+   * @param threadId 私人子區 ID
+   * @param creatorId 開票人 ID
+   */
+  private async finalizeTicketClosure(guildId: string, threadId: string, creatorId?: string): Promise<void> {
+    await ticketRepository.deleteThreadRecord(threadId);
+    await ticketRepository.removePendingAutoClose(threadId);
+
+    if (creatorId) {
+      await ticketRepository.deleteUserActiveTicket(guildId, creatorId);
+      await ticketRepository.setUserCooldown(guildId, creatorId, TICKET_COOLDOWN_SECONDS);
+    }
+  }
   /**
    * 設定指定頻道為工單面板頻道或完全停用該頻道工單功能
    *
@@ -124,9 +151,30 @@ export class TicketService {
         releaseOnSuccess: true,
       },
       async () => {
+        // 1. 檢查使用者是否已有未關閉的進行中工單
+        const activeThreadId = await ticketRepository.getUserActiveTicket(guild.id, interaction.user.id);
+        if (activeThreadId) {
+          const existingThread =
+            guild.channels.cache.get(activeThreadId) || (await guild.channels.fetch(activeThreadId).catch(() => null));
+
+          if (existingThread && existingThread.isThread() && !existingThread.archived) {
+            throw new AppError(`您目前已有一筆未關閉的進行中工單 (<#${activeThreadId}>)，請等待該工單關閉後再行申請！`, 400);
+          }
+
+          // 若子區已被手動刪除或封存，執行結案清理並寫入 3 天冷卻，防止繞過冷卻限制
+          await this.finalizeTicketClosure(guild.id, activeThreadId, interaction.user.id);
+        }
+
+        // 2. 檢查使用者是否處於工單關閉後的 3 天冷卻期
+        const cooldownUntilMs = await ticketRepository.getUserCooldownUntil(guild.id, interaction.user.id);
+        if (cooldownUntilMs && cooldownUntilMs > Date.now()) {
+          const unixSec = Math.ceil(cooldownUntilMs / 1000);
+          throw new AppError(`您的工單申請尚在 3 天冷卻期間，請於 <t:${unixSec}:F> (<t:${unixSec}:R>) 後再試。`, 400);
+        }
+
         const roleIds = ticketConfig.roleIds || [];
 
-        // 1. 建立私人子區 (Private Thread)
+        // 3. 建立私人子區 (Private Thread)
         const timestampSuffix = Date.now().toString().slice(-4);
         const threadName = `工單-${interaction.user.username}-${timestampSuffix}`;
 
@@ -137,17 +185,17 @@ export class TicketService {
           invitable: false,
         });
 
-        // 2. 將開票人加入該私人子區
+        // 4. 將開票人加入該私人子區
         await thread.members.add(interaction.user.id);
 
-        // 3. 在子區內艾特通知指定身分組和開票人
+        // 5. 在子區內艾特通知指定身分組和開票人
         const roleMentions = roleIds.map((id) => `<@&${id}>`).join(' ');
         const notificationContent = `<@${interaction.user.id}> ${roleMentions}`.trim();
 
         const ticketNoticeEmbed = new EmbedBuilder()
           .setTitle('工單已開啟')
           .setDescription(
-            `您好 <@${interaction.user.id}>，客服與管理人員已收到通知！\n請在此詳細說明您的需求、意見、投訴或詢問，我們將盡快為您處置。`
+            `您好 <@${interaction.user.id}>，客服與管理人員已收到通知！\n請在此詳細說明您的需求、意見、投訴或詢問，我們將盡快為您處置。\n提醒：若工單超過 7 天未關閉，系統將自動結案。`
           )
           .setColor(0x3498db)
           .setFooter({ text: '客服團隊與管理身分組人員可於諮詢結束後點擊下方按鈕結案。' })
@@ -166,7 +214,7 @@ export class TicketService {
           components: [closeRow],
         });
 
-        // 4. 儲存工單子區記錄
+        // 6. 儲存工單子區記錄、使用者進行中索引與 7 天自動關閉排程
         await ticketRepository.saveThreadRecord(thread.id, {
           guildId: guild.id,
           channelId: channel.id,
@@ -175,15 +223,17 @@ export class TicketService {
           roleIds,
           createdAt: new Date().toISOString(),
         });
+        await ticketRepository.setUserActiveTicket(guild.id, interaction.user.id, thread.id);
+        await ticketRepository.addPendingAutoClose(thread.id, Date.now() + TICKET_AUTO_CLOSE_MS);
 
-        // 5. 隱密通知開票人跳轉至子區 (使用 BaseResponse 統一處置)
+        // 7. 隱密通知開票人跳轉至子區 (使用 BaseResponse 統一處置)
         await BaseResponse.send(interaction, `您的工單已建立！請前往私人子區諮詢：<#${thread.id}>`, true);
       }
     );
   }
 
   /**
-   * 處理點擊「關閉工單」按鈕 (檢查指定身分組權限、移除開票人並關閉子區)
+   * 處理點擊「關閉工單」按鈕 (檢查指定身分組權限、移除開票人、寫入 3 天冷卻並關閉子區)
    *
    * @param interaction 按鈕點擊交互
    */
@@ -235,14 +285,72 @@ export class TicketService {
         // 5. 於封存前先回覆點擊者 (使用 BaseResponse 統一處置，避免封存後狀態異常)
         await BaseResponse.send(interaction, '工單已關閉並歸檔。', true);
 
-        // 6. 清理記錄
-        await ticketRepository.deleteThreadRecord(threadId);
+        // 6. 清理進行中工單紀錄、取消自動關閉排程並設定 3 天冷卻
+        const targetGuildId = record?.guildId || interaction.guildId || thread.guildId;
+        await this.finalizeTicketClosure(targetGuildId, threadId, targetCreatorId);
 
         // 7. 鎖定並歸檔子區
         await thread.setLocked(true).catch(() => {});
         await thread.setArchived(true).catch(() => {});
       }
     );
+  }
+
+  /**
+   * 定時自動關閉超過 7 天未關閉的工單 (由 scheduler 排程驅動，移除開票人、鎖定歸檔並觸發 3 天冷卻)
+   *
+   * @param client Discord 客戶端實例
+   */
+  public async autoCloseExpiredTickets(client: Client): Promise<void> {
+    const lockKey = RedisKeys.Lock.ticketAutoClose();
+    try {
+      await lockService.runWithLock(
+        {
+          lockKey,
+          ttlMs: 60000,
+          releaseOnSuccess: true,
+        },
+        async () => {
+          const dueThreadIds = await ticketRepository.getDueAutoCloses(Date.now());
+          if (dueThreadIds.length === 0) return;
+
+          console.log(`[TicketService] 偵測到 ${dueThreadIds.length} 筆超過 7 天未關閉的逾期工單，準備自動結案...`);
+
+          for (const threadId of dueThreadIds) {
+            try {
+              const record = await ticketRepository.getThreadRecord(threadId);
+              const channel = client.channels.cache.get(threadId) || (await client.channels.fetch(threadId).catch(() => null));
+
+              if (channel && channel.isThread() && !channel.archived) {
+                if (record?.creatorId) {
+                  await channel.members.remove(record.creatorId).catch((err) => {
+                    console.warn(`[TicketService] 自動結案移除開票人 ${record.creatorId} 失敗:`, err.message);
+                  });
+                }
+
+                await channel.send('此工單已超過 7 天未關閉，系統已自動結案並移出開票人。').catch(() => {});
+
+                await channel.setLocked(true).catch(() => {});
+                await channel.setArchived(true).catch(() => {});
+              }
+
+              if (record) {
+                await this.finalizeTicketClosure(record.guildId, threadId, record.creatorId);
+              } else {
+                await ticketRepository.removePendingAutoClose(threadId);
+              }
+            } catch (err: any) {
+              console.error(`[TicketService] 自動關閉逾期工單失敗 (${threadId}):`, err.message);
+            }
+          }
+        }
+      );
+    } catch (err: any) {
+      if (err instanceof AppError && err.statusCode === 429) {
+        return;
+      }
+      throw err;
+    }
   }
 }
 
